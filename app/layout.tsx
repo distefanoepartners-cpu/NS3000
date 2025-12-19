@@ -4,12 +4,6 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'NS3000 RENT',
   description: 'Sistema gestione prenotazioni barche e servizi marittimi',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'NS3000'
-  }
 }
 
 export const viewport: Viewport = {
@@ -28,23 +22,6 @@ export default function RootLayout({
     <html lang="it">
       <body>
         {children}
-
-        {/* Service Worker Registration - DISABILITATO */}
-        {/* 
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('Service Worker registrato'))
-                    .catch(err => console.log('Service Worker errore:', err))
-                })
-              }
-            `
-          }}
-        />
-        */}
       </body>
     </html>
   )
