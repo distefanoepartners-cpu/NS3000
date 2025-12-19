@@ -1,3 +1,114 @@
+import Link from 'next/link'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Ship, Calendar, Users, Anchor, MapPin, BarChart3 } from 'lucide-react'
+
 export default function HomePage() {
-  return <div>TEST HOMEPAGE</div>
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-4xl font-bold text-blue-600">Dashboard NS3000 RENT</h1>
+        <p className="text-gray-600 mt-2 text-lg">Sistema di gestione prenotazioni barche e servizi marittimi</p>
+      </div>
+
+      {/* Sezione Principale */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Gestione Principale</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Link href="/boats">
+            <Card className="hover:shadow-xl transition-all cursor-pointer hover:scale-105 border-2 hover:border-blue-500">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Barche</CardTitle>
+                <Ship className="h-6 w-6 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-blue-600 mb-1">10</p>
+                <p className="text-gray-600 text-sm">Gestisci la flotta</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/services">
+            <Card className="hover:shadow-xl transition-all cursor-pointer hover:scale-105 border-2 hover:border-blue-500">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Servizi</CardTitle>
+                <Anchor className="h-6 w-6 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-blue-600 mb-1">10</p>
+                <p className="text-gray-600 text-sm">Tour e trasferimenti</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/bookings">
+            <Card className="hover:shadow-xl transition-all cursor-pointer hover:scale-105 border-2 hover:border-green-500">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Prenotazioni</CardTitle>
+                <Calendar className="h-6 w-6 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-green-600 mb-1">-</p>
+                <p className="text-gray-600 text-sm">Gestisci booking</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/customers">
+            <Card className="hover:shadow-xl transition-all cursor-pointer hover:scale-105 border-2 hover:border-purple-500">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Clienti</CardTitle>
+                <Users className="h-6 w-6 text-purple-600" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-purple-600 mb-1">-</p>
+                <p className="text-gray-600 text-sm">Anagrafica completa</p>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      </div>
+
+      {/* Sezione Operativa */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Operatività</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link href="/planning">
+            <Card className="hover:shadow-xl transition-all cursor-pointer hover:scale-105 border-2 hover:border-orange-500">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Planning</CardTitle>
+                <MapPin className="h-6 w-6 text-orange-600" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 text-sm">Calendario disponibilità</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/suppliers">
+            <Card className="hover:shadow-xl transition-all cursor-pointer hover:scale-105 border-2 hover:border-indigo-500">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Fornitori</CardTitle>
+                <Users className="h-6 w-6 text-indigo-600" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 text-sm">Partner e provvigioni</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/reports">
+            <Card className="hover:shadow-xl transition-all cursor-pointer hover:scale-105 border-2 hover:border-red-500">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Reports</CardTitle>
+                <BarChart3 className="h-6 w-6 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 text-sm">Estratti conto</p>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
 }
