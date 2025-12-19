@@ -1,26 +1,48 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
+  let supabaseResponse = NextResponse.next({
+    request: req,
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({
+            request: req,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // Se non c'è sessione e non è la pagina di login, redirect a login
-  if (!session && !req.nextUrl.pathname.startsWith('/login')) {
+  // Se non c'è utente e non è la pagina di login, redirect a login
+  if (!user && !req.nextUrl.pathname.startsWith('/login')) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // Se c'è sessione e sta cercando di accedere a login, redirect a dashboard
-  if (session && req.nextUrl.pathname.startsWith('/login')) {
+  // Se c'è utente e sta cercando di accedere a login, redirect a dashboard
+  if (user && req.nextUrl.pathname.startsWith('/login')) {
     return NextResponse.redirect(new URL('/boats', req.url))
   }
 
-  return res
+  return supabaseResponse
 }
 
 export const config = {
