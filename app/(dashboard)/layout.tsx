@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { LogOut } from 'lucide-react'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  useAuth() // Protegge la route
   const router = useRouter()
 
   const handleLogout = async () => {
