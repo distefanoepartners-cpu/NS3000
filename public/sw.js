@@ -1,7 +1,7 @@
 // Service Worker per NS3000 RENT
 const CACHE_NAME = 'ns3000-v1'
 const urlsToCache = [
-  '/',
+  '/login',
   '/boats',
   '/services',
   '/bookings',
@@ -19,8 +19,14 @@ self.addEventListener('install', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
+  // Ignora redirect e richieste non-GET
+  if (event.request.method !== 'GET' || event.request.redirect === 'manual') {
+    return
+  }
+  
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => response || fetch(event.request))
+    fetch(event.request).catch(() => {
+      return caches.match(event.request)
+    })
   )
 })
