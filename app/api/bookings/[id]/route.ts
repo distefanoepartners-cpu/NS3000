@@ -1,26 +1,17 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-client'
 
-// GET - Singola prenotazione
+// GET - Singola barca
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }  // ← Promise qui
 ) {
   try {
-    const { id } = await params
+    const { id } = await params  // ← await qui
     
     const { data, error } = await supabaseAdmin
-      .from('bookings')
-      .select(`
-        *,
-        customer:customers(id, first_name, last_name, email, phone),
-        boat:boats(id, name, boat_type),
-        service:services(id, name, type),
-        supplier:suppliers(id, name),
-        port:ports(id, name, code),
-        time_slot:time_slots(id, name, start_time, end_time),
-        booking_status:booking_statuses(id, name, code, color_code)
-      `)
+      .from('boats')
+      .select('*')
       .eq('id', id)
       .single()
 
@@ -32,29 +23,20 @@ export async function GET(
   }
 }
 
-// PUT - Aggiorna prenotazione
+// PUT - Aggiorna barca
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }  // ← Promise qui
 ) {
   try {
-    const { id } = await params
+    const { id } = await params  // ← await qui
     const body = await request.json()
 
     const { data, error } = await supabaseAdmin
-      .from('bookings')
+      .from('boats')
       .update(body)
       .eq('id', id)
-      .select(`
-        *,
-        customer:customers(id, first_name, last_name, email, phone),
-        boat:boats(id, name, boat_type),
-        service:services(id, name, type),
-        supplier:suppliers(id, name),
-        port:ports(id, name, code),
-        time_slot:time_slots(id, name, start_time, end_time),
-        booking_status:booking_statuses(id, name, code, color_code)
-      `)
+      .select()
       .single()
 
     if (error) throw error
@@ -65,16 +47,16 @@ export async function PUT(
   }
 }
 
-// DELETE - Elimina prenotazione
+// DELETE - Elimina barca
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }  // ← Promise qui
 ) {
   try {
-    const { id } = await params
+    const { id } = await params  // ← await qui
     
     const { error } = await supabaseAdmin
-      .from('bookings')
+      .from('boats')
       .delete()
       .eq('id', id)
 
