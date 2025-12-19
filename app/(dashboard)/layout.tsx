@@ -1,25 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { supabase } from '@/lib/supabase-client'
-import { LogOut } from 'lucide-react'
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  
-  const router = useRouter()
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -54,12 +42,6 @@ export default function DashboardLayout({
                 </Link>
               </nav>
             </div>
-            
-            {/* Logout Button */}
-            <Button variant="outline" onClick={handleLogout} className="gap-2">
-              <LogOut className="h-4 w-4" />
-              Esci
-            </Button>
           </div>
         </div>
       </header>
