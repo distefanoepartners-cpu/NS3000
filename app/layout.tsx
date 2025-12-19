@@ -29,7 +29,8 @@ export default function RootLayout({
       <body>
         {children}
 
-        {/* Service Worker Registration */}
+        {/* Service Worker Registration - DISABILITATO */}
+        {/* 
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -43,6 +44,7 @@ export default function RootLayout({
             `
           }}
         />
+        */}
       </body>
     </html>
   )
