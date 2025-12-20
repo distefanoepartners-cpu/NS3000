@@ -1,17 +1,59 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Ship, Anchor, Calendar, Users, Building2, MapPin, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 
+type DashboardStats = {
+  bookingsToday: number
+  activeBoats: number
+  totalBoats: number
+  monthlyRevenue: number
+  occupancyRate: number
+  totalCustomers: number
+  totalSuppliers: number
+  totalServices: number
+  totalBookings: number
+}
+
 export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats>({
+    bookingsToday: 0,
+    activeBoats: 0,
+    totalBoats: 0,
+    monthlyRevenue: 0,
+    occupancyRate: 0,
+    totalCustomers: 0,
+    totalSuppliers: 0,
+    totalServices: 0,
+    totalBookings: 0
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadStats()
+  }, [])
+
+  const loadStats = async () => {
+    try {
+      const response = await fetch('/api/dashboard/stats')
+      const data = await response.json()
+      setStats(data)
+    } catch (error) {
+      console.error('Errore caricamento stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const modules = [
     {
       title: 'Barche',
       description: 'Flotta disponibile',
       icon: Ship,
       href: '/boats',
-      count: '10',
+      count: stats.totalBoats,
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
       iconColor: 'text-blue-600'
@@ -21,7 +63,7 @@ export default function DashboardPage() {
       description: 'Tour e noleggi',
       icon: Anchor,
       href: '/services',
-      count: '8',
+      count: stats.totalServices,
       color: 'from-cyan-500 to-cyan-600',
       bgColor: 'bg-cyan-50',
       iconColor: 'text-cyan-600'
@@ -31,7 +73,7 @@ export default function DashboardPage() {
       description: 'Gestione booking',
       icon: Calendar,
       href: '/bookings',
-      count: '24',
+      count: stats.totalBookings,
       color: 'from-purple-500 to-purple-600',
       bgColor: 'bg-purple-50',
       iconColor: 'text-purple-600'
@@ -51,7 +93,7 @@ export default function DashboardPage() {
       description: 'Anagrafica clienti',
       icon: Users,
       href: '/customers',
-      count: '156',
+      count: stats.totalCustomers,
       color: 'from-green-500 to-green-600',
       bgColor: 'bg-green-50',
       iconColor: 'text-green-600'
@@ -61,7 +103,7 @@ export default function DashboardPage() {
       description: 'Partner e fornitori',
       icon: Building2,
       href: '/suppliers',
-      count: '12',
+      count: stats.totalSuppliers,
       color: 'from-indigo-500 to-indigo-600',
       bgColor: 'bg-indigo-50',
       iconColor: 'text-indigo-600'
@@ -78,16 +120,23 @@ export default function DashboardPage() {
     }
   ]
 
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Caricamento...</div>
+  }
+
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-          Dashboard NS3000 RENT
-        </h1>
-        <p className="text-gray-600 text-lg">
-          Sistema di gestione prenotazioni barche e servizi marittimi
-        </p>
+      {/* Header Compatto con Logo */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Dashboard NS3000 RENT
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Sistema di gestione prenotazioni barche e servizi marittimi
+          </p>
+        </div>
+        <img src="/icon-192.png" alt="NS3000" className="h-12 w-12" />
       </div>
 
       {/* Stats Cards - Compact */}
@@ -97,7 +146,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Prenotazioni Oggi</p>
-                <p className="text-3xl font-bold text-gray-900">3</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.bookingsToday}</p>
               </div>
               <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <Calendar className="h-6 w-6 text-blue-600" />
@@ -111,7 +160,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Barche Operative</p>
-                <p className="text-3xl font-bold text-gray-900">8/10</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.activeBoats}/{stats.totalBoats}</p>
               </div>
               <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
                 <Ship className="h-6 w-6 text-green-600" />
@@ -125,7 +174,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Fatturato Mese</p>
-                <p className="text-3xl font-bold text-gray-900">€ 12.4k</p>
+                <p className="text-3xl font-bold text-gray-900">€ {(stats.monthlyRevenue / 1000).toFixed(1)}k</p>
               </div>
               <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
                 <BarChart3 className="h-6 w-6 text-purple-600" />
@@ -139,7 +188,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Tasso Occupazione</p>
-                <p className="text-3xl font-bold text-gray-900">76%</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.occupancyRate}%</p>
               </div>
               <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
                 <MapPin className="h-6 w-6 text-orange-600" />
@@ -151,7 +200,7 @@ export default function DashboardPage() {
 
       {/* Main Modules Grid - Colorful & Compact */}
       <div>
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">Gestione Principale</h2>
+        <h2 className="text-xl font-bold mb-4 text-gray-800">Gestione Principale</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {modules.map((module) => {
             const Icon = module.icon
@@ -191,7 +240,7 @@ export default function DashboardPage() {
 
       {/* Quick Stats */}
       <div>
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">Statistiche Rapide</h2>
+        <h2 className="text-xl font-bold mb-4 text-gray-800">Statistiche Rapide</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader>
