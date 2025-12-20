@@ -4,6 +4,8 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'NS3000 RENT',
   description: 'Sistema gestione prenotazioni barche e servizi marittimi',
+  manifest: '/manifest.json',
+   
 }
 
 export const viewport: Viewport = {
