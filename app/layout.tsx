@@ -5,8 +5,11 @@ export const metadata: Metadata = {
   title: 'NS3000 RENT',
   description: 'Sistema gestione prenotazioni barche e servizi marittimi',
   manifest: '/manifest.json',
-   
-}
+  icons: {
+    icon: '/icon-192.png',
+    apple: '/icon-192.png',
+  },
+} 
 
 export const viewport: Viewport = {
   themeColor: '#0066cc',
