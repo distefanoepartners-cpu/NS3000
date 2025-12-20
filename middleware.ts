@@ -21,7 +21,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/',
     '/boats/:path*',
     '/services/:path*',
     '/bookings/:path*',
@@ -29,6 +28,5 @@ export const config = {
     '/suppliers/:path*',
     '/planning/:path*',
     '/reports/:path*',
-    '/login',
   ],
 }
