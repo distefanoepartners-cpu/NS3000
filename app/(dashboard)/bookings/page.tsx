@@ -26,7 +26,22 @@ import { Plus, Pencil, Trash2, Calendar, Clock, UserPlus } from 'lucide-react'
 
 type BookingOption = {
   customers: Array<{ id: string; first_name: string; last_name: string }>
-  boats: Array<{ id: string; name: string }>
+  boats: Array<{ 
+    id: string
+    name: string
+    price_low_season_half_day: number | null
+    price_low_season_full_day: number | null
+    price_low_season_week: number | null
+    price_july_half_day: number | null
+    price_july_full_day: number | null
+    price_july_week: number | null
+    price_august_half_day: number | null
+    price_august_full_day: number | null
+    price_august_week: number | null
+    price_september_half_day: number | null
+    price_september_full_day: number | null
+    price_september_week: number | null
+  }>
   services: Array<{ id: string; name: string; type: string }>
   suppliers: Array<{ id: string; name: string }>
   ports: Array<{ id: string; name: string; code: string }>
@@ -52,6 +67,7 @@ type Booking = {
   deposit_amount: number
   balance_amount: number
   num_passengers: number | null
+  custom_time: string | null
 }
 
 export default function BookingsPage() {
@@ -63,14 +79,15 @@ export default function BookingsPage() {
   const [editingBooking, setEditingBooking] = useState<any>(null)
 
   const [formData, setFormData] = useState({
+    booking_date: '',
     customer_id: '',
     boat_id: '',
     service_id: '',
     supplier_id: '',
     port_id: '',
     time_slot_id: '',
+    custom_time: '',
     booking_status_id: '',
-    booking_date: '',
     num_passengers: '',
     base_price: '',
     final_price: '',
@@ -94,6 +111,74 @@ export default function BookingsPage() {
     loadBookings()
     loadOptions()
   }, [])
+
+  // Calcola prezzo automatico basato su barca + data
+  const calculateSeasonalPrice = (boatId: string, date: string, timeSlotId: string) => {
+    if (!boatId || !date || !timeSlotId || !options) return null
+
+    const boat = options.boats.find(b => b.id === boatId)
+    const timeSlot = options.timeSlots.find(t => t.id === timeSlotId)
+    if (!boat || !timeSlot) return null
+
+    const bookingDate = new Date(date)
+    const month = bookingDate.getMonth() + 1 // 1-12
+
+    let price = null
+
+    // Determina stagione
+    if (month >= 4 && month <= 6) {
+      // Bassa stagione (Apr-Mag-Giu)
+      if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
+        price = boat.price_low_season_half_day
+      } else if (timeSlot.name === 'Full Day') {
+        price = boat.price_low_season_full_day
+      } else if (timeSlot.name === 'Week') {
+        price = boat.price_low_season_week
+      }
+    } else if (month === 7) {
+      // Luglio
+      if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
+        price = boat.price_july_half_day
+      } else if (timeSlot.name === 'Full Day') {
+        price = boat.price_july_full_day
+      } else if (timeSlot.name === 'Week') {
+        price = boat.price_july_week
+      }
+    } else if (month === 8) {
+      // Agosto
+      if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
+        price = boat.price_august_half_day
+      } else if (timeSlot.name === 'Full Day') {
+        price = boat.price_august_full_day
+      } else if (timeSlot.name === 'Week') {
+        price = boat.price_august_week
+      }
+    } else if (month === 9) {
+      // Settembre
+      if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
+        price = boat.price_september_half_day
+      } else if (timeSlot.name === 'Full Day') {
+        price = boat.price_september_full_day
+      } else if (timeSlot.name === 'Week') {
+        price = boat.price_september_week
+      }
+    }
+
+    return price
+  }
+
+  // Aggiorna prezzi quando cambiano barca/data/fascia
+  useEffect(() => {
+    const price = calculateSeasonalPrice(formData.boat_id, formData.booking_date, formData.time_slot_id)
+    if (price !== null) {
+      setFormData(prev => ({
+        ...prev,
+        base_price: price.toString(),
+        final_price: price.toString(),
+        balance_amount: (price - parseFloat(prev.deposit_amount || '0')).toFixed(2)
+      }))
+    }
+  }, [formData.boat_id, formData.booking_date, formData.time_slot_id])
 
   const loadBookings = async () => {
     try {
@@ -119,14 +204,15 @@ export default function BookingsPage() {
 
   const resetForm = () => {
     setFormData({
+      booking_date: '',
       customer_id: '',
       boat_id: '',
       service_id: '',
       supplier_id: '',
       port_id: '',
       time_slot_id: '',
+      custom_time: '',
       booking_status_id: options?.statuses.find(s => s.code === 'pending')?.id || '',
-      booking_date: '',
       num_passengers: '',
       base_price: '',
       final_price: '',
@@ -156,18 +242,17 @@ export default function BookingsPage() {
   }
 
   const handleEdit = (booking: Booking) => {
-    console.log('Booking completo:', booking)
-    
     setEditingBooking(booking)
     setFormData({
+      booking_date: booking.booking_date,
       customer_id: booking.customer?.id || '',
       boat_id: booking.boat?.id || '',
       service_id: booking.service?.id || '',
       supplier_id: booking.supplier?.id || '',
       port_id: booking.port?.id || '',
       time_slot_id: booking.time_slot?.id || '',
+      custom_time: booking.custom_time || '',
       booking_status_id: booking.booking_status?.id || '',
-      booking_date: booking.booking_date,
       num_passengers: booking.num_passengers?.toString() || '',
       base_price: booking.base_price?.toString() || '',
       final_price: booking.final_price.toString(),
@@ -176,14 +261,6 @@ export default function BookingsPage() {
       security_deposit: booking.security_deposit?.toString() || '0',
       notes: booking.notes || ''
     })
-    
-    console.log('FormData dopo set:', {
-      customer_id: booking.customer?.id,
-      boat_id: booking.boat?.id,
-      service_id: booking.service?.id,
-      booking_status_id: booking.booking_status?.id
-    })
-    
     setDialogOpen(true)
   }
 
@@ -206,10 +283,8 @@ export default function BookingsPage() {
       }
 
       const newCustomer = await response.json()
-
       await loadOptions()
       setFormData({ ...formData, customer_id: newCustomer.id })
-
       setCustomerDialogOpen(false)
       resetCustomerForm()
       alert('Cliente creato con successo!')
@@ -231,6 +306,7 @@ export default function BookingsPage() {
         supplier_id: formData.supplier_id || null,
         port_id: formData.port_id,
         time_slot_id: formData.time_slot_id,
+        custom_time: formData.custom_time || null,
         booking_status_id: formData.booking_status_id,
         booking_date: formData.booking_date,
         num_passengers: formData.num_passengers ? parseInt(formData.num_passengers) : null,
@@ -242,7 +318,6 @@ export default function BookingsPage() {
         total_paid: 0,
         notes: formData.notes || null
       }
-        console.log('Payload da inviare:', payload) // DEBUG
 
       if (editingBooking) {
         const response = await fetch(`/api/bookings/${editingBooking.id}`, {
@@ -327,12 +402,17 @@ export default function BookingsPage() {
             </DialogHeader>
 
             <div className="space-y-6 py-4">
-              {/* Sezione Cliente e Data */}
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Cliente e Data
-                </h3>
+              {/* DATA E CLIENTE - Prima sezione */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="booking_date">Data Prenotazione *</Label>
+                  <Input
+                    id="booking_date"
+                    type="date"
+                    value={formData.booking_date}
+                    onChange={(e) => setFormData({ ...formData, booking_date: e.target.value })}
+                  />
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="customer_id">Cliente *</Label>
@@ -359,16 +439,6 @@ export default function BookingsPage() {
                       <UserPlus className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="booking_date">Data Prenotazione *</Label>
-                  <Input
-                    id="booking_date"
-                    type="date"
-                    value={formData.booking_date}
-                    onChange={(e) => setFormData({ ...formData, booking_date: e.target.value })}
-                  />
                 </div>
               </div>
 
@@ -425,7 +495,7 @@ export default function BookingsPage() {
                   <Clock className="h-4 w-4" />
                   Luogo e Orario
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="port_id">Porto d'Imbarco *</Label>
                     <select
@@ -450,139 +520,150 @@ export default function BookingsPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     >
                       <option value="">Seleziona fascia...</option>
-                      {options.timeSlots.map(t => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} ({t.start_time.substring(0, 5)} - {t.end_time.substring(0, 5)})
-                        </option>
-                      ))}
+                      {options.timeSlots
+                        .filter(t => t.name !== 'Full Day' || !options.timeSlots.some(s => s.name === 'Full Day' && s.id !== t.id))
+                        .map(t => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} ({t.start_time.substring(0, 5)} - {t.end_time.substring(0, 5)})
+                          </option>
+                        ))}
                     </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="custom_time">Orario Personalizzato</Label>
+                    <Input
+                      id="custom_time"
+                      value={formData.custom_time}
+                      onChange={(e) => setFormData({ ...formData, custom_time: e.target.value })}
+                      placeholder="Es. 14:30 - 18:00"
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Sezione Prezzi */}
-          <div className="space-y-4 pt-4 border-t">
-            <h3 className="font-semibold">Prezzi e Pagamenti</h3>
-            <div className="grid grid-cols-5 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="base_price">Prezzo Base (€)</Label>
-                <Input
-                  id="base_price"
-                  type="number"
-                  step="0.01"
-                  value={formData.base_price}
-                  onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
-                  placeholder="500.00"
-                />
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="font-semibold">Prezzi e Pagamenti</h3>
+                <div className="grid grid-cols-5 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="base_price">Listino (€)</Label>
+                    <Input
+                      id="base_price"
+                      type="number"
+                      step="0.01"
+                      value={formData.base_price}
+                      onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
+                      placeholder="500.00"
+                      className="bg-blue-50"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="final_price">Prezzo Finale (€) *</Label>
+                    <Input
+                      id="final_price"
+                      type="number"
+                      step="0.01"
+                      value={formData.final_price}
+                      onChange={(e) => {
+                        const finalPrice = parseFloat(e.target.value) || 0
+                        const deposit = parseFloat(formData.deposit_amount) || 0
+                        const balance = finalPrice - deposit
+                        
+                        setFormData({ 
+                          ...formData, 
+                          final_price: e.target.value,
+                          balance_amount: balance.toFixed(2)
+                        })
+                      }}
+                      placeholder="500.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="deposit_amount">Acconto (€)</Label>
+                    <Input
+                      id="deposit_amount"
+                      type="number"
+                      step="0.01"
+                      value={formData.deposit_amount}
+                      onChange={(e) => {
+                        const deposit = parseFloat(e.target.value) || 0
+                        const finalPrice = parseFloat(formData.final_price) || 0
+                        const balance = finalPrice - deposit
+                        
+                        setFormData({ 
+                          ...formData, 
+                          deposit_amount: e.target.value,
+                          balance_amount: balance.toFixed(2)
+                        })
+                      }}
+                      placeholder="100.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="balance_amount">Saldo (€)</Label>
+                    <Input
+                      id="balance_amount"
+                      type="number"
+                      step="0.01"
+                      value={formData.balance_amount}
+                      readOnly
+                      className="bg-gray-50"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="security_deposit">Cauzione (€)</Label>
+                    <Input
+                      id="security_deposit"
+                      type="number"
+                      step="0.01"
+                      value={formData.security_deposit}
+                      onChange={(e) => setFormData({ ...formData, security_deposit: e.target.value })}
+                      placeholder="200.00"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="final_price">Prezzo Finale (€) *</Label>
-                <Input
-                  id="final_price"
-                  type="number"
-                  step="0.01"
-                  value={formData.final_price}
-                  onChange={(e) => {
-                    const finalPrice = parseFloat(e.target.value) || 0
-                    const deposit = parseFloat(formData.deposit_amount) || 0
-                    const balance = finalPrice - deposit
-                    
-                    setFormData({ 
-                      ...formData, 
-                      final_price: e.target.value,
-                      balance_amount: balance.toFixed(2)
-                    })
-                  }}
-                  placeholder="500.00"
-                />
+              {/* Sezione Stato e Fornitore */}
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="font-semibold">Stato e Provenienza</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="booking_status_id">Stato Prenotazione *</Label>
+                    <select
+                      id="booking_status_id"
+                      value={formData.booking_status_id}
+                      onChange={(e) => setFormData({ ...formData, booking_status_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">Seleziona stato...</option>
+                      {options.statuses.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier_id">Fornitore (Provenienza)</Label>
+                    <select
+                      id="supplier_id"
+                      value={formData.supplier_id}
+                      onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">Nessuno</option>
+                      {options.suppliers.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="deposit_amount">Acconto (€)</Label>
-                <Input
-                  id="deposit_amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.deposit_amount}
-                  onChange={(e) => {
-                    const deposit = parseFloat(e.target.value) || 0
-                    const finalPrice = parseFloat(formData.final_price) || 0
-                    const balance = finalPrice - deposit
-                    
-                    setFormData({ 
-                      ...formData, 
-                      deposit_amount: e.target.value,
-                      balance_amount: balance.toFixed(2)
-                    })
-                  }}
-                  placeholder="100.00"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="balance_amount">Saldo (€)</Label>
-                <Input
-                  id="balance_amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.balance_amount}
-                  onChange={(e) => setFormData({ ...formData, balance_amount: e.target.value })}
-                  placeholder="400.00"
-                  className="bg-gray-50"
-                  readOnly
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="security_deposit">Cauzione (€)</Label>
-                <Input
-                  id="security_deposit"
-                  type="number"
-                  step="0.01"
-                  value={formData.security_deposit}
-                  onChange={(e) => setFormData({ ...formData, security_deposit: e.target.value })}
-                  placeholder="200.00"
-                />
-              </div>
-            </div>
-          </div>
-
-                        {/* Sezione Stato e Fornitore */}
-                        <div className="space-y-4 pt-4 border-t">
-                          <h3 className="font-semibold">Stato e Provenienza</h3>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="booking_status_id">Stato Prenotazione *</Label>
-                              <select
-                                id="booking_status_id"
-                                value={formData.booking_status_id}
-                                onChange={(e) => setFormData({ ...formData, booking_status_id: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                              >
-                                <option value="">Seleziona stato...</option>
-                                {options.statuses.map(s => (
-                                  <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="supplier_id">Fornitore (Provenienza)</Label>
-                              <select
-                                id="supplier_id"
-                                value={formData.supplier_id}
-                                onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                              >
-                                <option value="">Nessuno</option>
-                                {options.suppliers.map(s => (
-                                  <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        </div>
 
               {/* Note */}
               <div className="space-y-2 pt-4 border-t">
@@ -774,7 +855,7 @@ export default function BookingsPage() {
                     <TableCell>{booking.service.name}</TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {booking.time_slot.name}
+                        {booking.custom_time || booking.time_slot.name}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-semibold">€ {booking.final_price.toFixed(2)}</TableCell>
