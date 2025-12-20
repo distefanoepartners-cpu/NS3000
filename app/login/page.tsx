@@ -26,7 +26,7 @@ export default function LoginPage() {
       })
 
       if (response.ok) {
-        router.push('/boats')
+        router.push('/')
       } else {
         setError('Password errata')
       }
