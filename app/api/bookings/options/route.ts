@@ -22,7 +22,7 @@ export async function GET() {
         price_september_full_day,
         price_september_week
       `).eq('is_active', true).order('name'),
-      supabaseAdmin.from('services').select('id, name, type').eq('is_active', true).order('name'),
+      supabaseAdmin.from('services').select('id, name, type, price_per_person, is_collective_tour').eq('is_active', true).order('name'),
       supabaseAdmin.from('suppliers').select('id, name').eq('is_active', true).order('name'),
       supabaseAdmin.from('ports').select('id, name, code').eq('is_active', true).order('name'),
       supabaseAdmin.from('time_slots').select('id, name, start_time, end_time').eq('is_active', true).order('start_time'),

@@ -42,7 +42,13 @@ type BookingOption = {
     price_september_full_day: number | null
     price_september_week: number | null
   }>
-  services: Array<{ id: string; name: string; type: string }>
+  services: Array<{ 
+    id: string
+    name: string
+    type: string
+    price_per_person: number | null
+    is_collective_tour: boolean
+  }>
   suppliers: Array<{ id: string; name: string }>
   ports: Array<{ id: string; name: string; code: string }>
   timeSlots: Array<{ id: string; name: string; start_time: string; end_time: string }>
@@ -112,22 +118,38 @@ export default function BookingsPage() {
     loadOptions()
   }, [])
 
-  // Calcola prezzo automatico basato su barca + data
-  const calculateSeasonalPrice = (boatId: string, date: string, timeSlotId: string) => {
-    if (!boatId || !date || !timeSlotId || !options) return null
+  // Calcola prezzo automatico basato su servizio/barca + data + passeggeri
+  const calculatePrice = (
+    serviceId: string,
+    boatId: string, 
+    date: string, 
+    timeSlotId: string,
+    numPassengers: string
+  ) => {
+    if (!serviceId || !date || !timeSlotId || !options) return null
 
+    const service = options.services.find(s => s.id === serviceId)
+    if (!service) return null
+
+    // TOUR COLLETTIVO - Prezzo per persona
+    if (service.is_collective_tour && service.price_per_person) {
+      const passengers = parseInt(numPassengers) || 1
+      return service.price_per_person * passengers
+    }
+
+    // NOLEGGIO BARCA - Prezzo stagionale
+    if (!boatId) return null
     const boat = options.boats.find(b => b.id === boatId)
     const timeSlot = options.timeSlots.find(t => t.id === timeSlotId)
     if (!boat || !timeSlot) return null
 
     const bookingDate = new Date(date)
-    const month = bookingDate.getMonth() + 1 // 1-12
+    const month = bookingDate.getMonth() + 1
 
     let price = null
 
     // Determina stagione
     if (month >= 4 && month <= 6) {
-      // Bassa stagione (Apr-Mag-Giu)
       if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
         price = boat.price_low_season_half_day
       } else if (timeSlot.name === 'Full Day') {
@@ -136,7 +158,6 @@ export default function BookingsPage() {
         price = boat.price_low_season_week
       }
     } else if (month === 7) {
-      // Luglio
       if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
         price = boat.price_july_half_day
       } else if (timeSlot.name === 'Full Day') {
@@ -145,7 +166,6 @@ export default function BookingsPage() {
         price = boat.price_july_week
       }
     } else if (month === 8) {
-      // Agosto
       if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
         price = boat.price_august_half_day
       } else if (timeSlot.name === 'Full Day') {
@@ -154,7 +174,6 @@ export default function BookingsPage() {
         price = boat.price_august_week
       }
     } else if (month === 9) {
-      // Settembre
       if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
         price = boat.price_september_half_day
       } else if (timeSlot.name === 'Full Day') {
@@ -167,10 +186,16 @@ export default function BookingsPage() {
     return price
   }
 
-  // Aggiorna prezzi quando cambiano barca/data/fascia
+  // Aggiorna prezzi quando cambiano servizio/barca/data/fascia/passeggeri
   useEffect(() => {
-    const price = calculateSeasonalPrice(formData.boat_id, formData.booking_date, formData.time_slot_id)
-    if (price !== null) {
+    const price = calculatePrice(
+      formData.service_id,
+      formData.boat_id,
+      formData.booking_date,
+      formData.time_slot_id,
+      formData.num_passengers
+    )
+    if (price !== null && price !== undefined) {
       setFormData(prev => ({
         ...prev,
         base_price: price.toString(),
@@ -178,7 +203,7 @@ export default function BookingsPage() {
         balance_amount: (price - parseFloat(prev.deposit_amount || '0')).toFixed(2)
       }))
     }
-  }, [formData.boat_id, formData.booking_date, formData.time_slot_id])
+  }, [formData.service_id, formData.boat_id, formData.booking_date, formData.time_slot_id, formData.num_passengers])
 
   const loadBookings = async () => {
     try {
