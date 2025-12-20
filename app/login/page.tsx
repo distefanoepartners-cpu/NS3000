@@ -39,8 +39,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+      <CardHeader className="space-y-1">
+          <div className="flex justify-center mb-4">
+            <img src="/icon-192.png" alt="NS3000 RENT" className="h-24 w-24" />
+          </div>
           <CardTitle className="text-3xl font-bold text-center text-blue-600">
             NS3000 RENT
           </CardTitle>
