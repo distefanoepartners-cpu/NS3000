@@ -38,6 +38,18 @@ type Boat = {
   is_active: boolean
   notes: string | null
   image_url: string | null
+  price_low_season_half_day: number | null
+  price_low_season_full_day: number | null
+  price_low_season_week: number | null
+  price_july_half_day: number | null
+  price_july_full_day: number | null
+  price_july_week: number | null
+  price_august_half_day: number | null
+  price_august_full_day: number | null
+  price_august_week: number | null
+  price_september_half_day: number | null
+  price_september_full_day: number | null
+  price_september_week: number | null
 }
 
 export default function BoatsPage() {
@@ -58,7 +70,20 @@ export default function BoatsPage() {
     year: '',
     registration_number: '',
     is_active: true,
-    notes: ''
+    notes: '',
+    // Prezzi stagionali
+    price_low_season_half_day: '',
+    price_low_season_full_day: '',
+    price_low_season_week: '',
+    price_july_half_day: '',
+    price_july_full_day: '',
+    price_july_week: '',
+    price_august_half_day: '',
+    price_august_full_day: '',
+    price_august_week: '',
+    price_september_half_day: '',
+    price_september_full_day: '',
+    price_september_week: ''
   })
 
   useEffect(() => {
@@ -88,7 +113,19 @@ export default function BoatsPage() {
       year: '',
       registration_number: '',
       is_active: true,
-      notes: ''
+      notes: '',
+      price_low_season_half_day: '',
+      price_low_season_full_day: '',
+      price_low_season_week: '',
+      price_july_half_day: '',
+      price_july_full_day: '',
+      price_july_week: '',
+      price_august_half_day: '',
+      price_august_full_day: '',
+      price_august_week: '',
+      price_september_half_day: '',
+      price_september_full_day: '',
+      price_september_week: ''
     })
     setImageFile(null)
     setImagePreview(null)
@@ -124,61 +161,85 @@ export default function BoatsPage() {
       year: boat.year?.toString() || '',
       registration_number: boat.registration_number || '',
       is_active: boat.is_active,
-      notes: boat.notes || ''
+      notes: boat.notes || '',
+      price_low_season_half_day: boat.price_low_season_half_day?.toString() || '',
+      price_low_season_full_day: boat.price_low_season_full_day?.toString() || '',
+      price_low_season_week: boat.price_low_season_week?.toString() || '',
+      price_july_half_day: boat.price_july_half_day?.toString() || '',
+      price_july_full_day: boat.price_july_full_day?.toString() || '',
+      price_july_week: boat.price_july_week?.toString() || '',
+      price_august_half_day: boat.price_august_half_day?.toString() || '',
+      price_august_full_day: boat.price_august_full_day?.toString() || '',
+      price_august_week: boat.price_august_week?.toString() || '',
+      price_september_half_day: boat.price_september_half_day?.toString() || '',
+      price_september_full_day: boat.price_september_full_day?.toString() || '',
+      price_september_week: boat.price_september_week?.toString() || ''
     })
     setImagePreview(null)
     setDialogOpen(true)
   }
 
   const handleSave = async () => {
-  try {
-    let imageUrl = editingBoat?.image_url || null
+    try {
+      let imageUrl = editingBoat?.image_url || null
 
-    // Upload immagine se presente
-    if (imageFile) {
-      const url = await uploadImage(imageFile, 'boats')
-      if (url) imageUrl = url
-    }
-
-    const payload = {
-      name: formData.name,
-      boat_type: formData.boat_type,
-      max_passengers: formData.capacity ? parseInt(formData.capacity) : null, // ← CAMBIATO
-      length_meters: formData.length ? parseFloat(formData.length) : null, // ← CAMBIATO
-      registration_number: formData.registration_number || null,
-      is_active: formData.is_active,
-      description: formData.notes || null, // ← CAMBIATO da notes a description
-      image_url: imageUrl,
-      technical_specs: { // ← AGGIUNGI JSONB
-        engine_power: formData.engine_power ? parseInt(formData.engine_power) : null,
-        fuel_type: formData.fuel_type || null,
-        year: formData.year ? parseInt(formData.year) : null
+      if (imageFile) {
+        const url = await uploadImage(imageFile, 'boats')
+        if (url) imageUrl = url
       }
-    }
 
-    if (editingBoat) {
-      await fetch(`/api/boats/${editingBoat.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-    } else {
-      await fetch('/api/boats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-    }
+      const payload = {
+        name: formData.name,
+        boat_type: formData.boat_type,
+        max_passengers: formData.capacity ? parseInt(formData.capacity) : null,
+        length_meters: formData.length ? parseFloat(formData.length) : null,
+        registration_number: formData.registration_number || null,
+        is_active: formData.is_active,
+        description: formData.notes || null,
+        image_url: imageUrl,
+        technical_specs: {
+          engine_power: formData.engine_power ? parseInt(formData.engine_power) : null,
+          fuel_type: formData.fuel_type || null,
+          year: formData.year ? parseInt(formData.year) : null
+        },
+        // Prezzi stagionali
+        price_low_season_half_day: formData.price_low_season_half_day ? parseFloat(formData.price_low_season_half_day) : null,
+        price_low_season_full_day: formData.price_low_season_full_day ? parseFloat(formData.price_low_season_full_day) : null,
+        price_low_season_week: formData.price_low_season_week ? parseFloat(formData.price_low_season_week) : null,
+        price_july_half_day: formData.price_july_half_day ? parseFloat(formData.price_july_half_day) : null,
+        price_july_full_day: formData.price_july_full_day ? parseFloat(formData.price_july_full_day) : null,
+        price_july_week: formData.price_july_week ? parseFloat(formData.price_july_week) : null,
+        price_august_half_day: formData.price_august_half_day ? parseFloat(formData.price_august_half_day) : null,
+        price_august_full_day: formData.price_august_full_day ? parseFloat(formData.price_august_full_day) : null,
+        price_august_week: formData.price_august_week ? parseFloat(formData.price_august_week) : null,
+        price_september_half_day: formData.price_september_half_day ? parseFloat(formData.price_september_half_day) : null,
+        price_september_full_day: formData.price_september_full_day ? parseFloat(formData.price_september_full_day) : null,
+        price_september_week: formData.price_september_week ? parseFloat(formData.price_september_week) : null
+      }
 
-    setDialogOpen(false)
-    resetForm()
-    loadBoats()
-  } catch (error) {
-    console.error('Errore salvataggio:', error)
-    alert('Errore durante il salvataggio')
+      if (editingBoat) {
+        await fetch(`/api/boats/${editingBoat.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      } else {
+        await fetch('/api/boats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      }
+
+      setDialogOpen(false)
+      resetForm()
+      loadBoats()
+    } catch (error) {
+      console.error('Errore salvataggio:', error)
+      alert('Errore durante il salvataggio')
+    }
   }
 
-}
   const handleDelete = async (id: string) => {
     if (!confirm('Sei sicuro di voler eliminare questa barca?')) return
 
@@ -211,7 +272,7 @@ export default function BoatsPage() {
               Nuova Barca
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingBoat ? 'Modifica Barca' : 'Nuova Barca'}
@@ -352,6 +413,161 @@ export default function BoatsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
                   placeholder="Note aggiuntive..."
                 />
+              </div>
+
+              {/* LISTINO PREZZI STAGIONALI */}
+              <div className="col-span-2 border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <span>💰</span> Listino Prezzi Stagionali
+                </h3>
+                
+                {/* Bassa Stagione */}
+                <div className="mb-6 bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-3 text-blue-900">🌸 Bassa Stagione (Apr-Mag-Giu)</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label>Mezza Giornata (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="500.00"
+                        value={formData.price_low_season_half_day}
+                        onChange={(e) => setFormData({ ...formData, price_low_season_half_day: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Giornata Intera (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="800.00"
+                        value={formData.price_low_season_full_day}
+                        onChange={(e) => setFormData({ ...formData, price_low_season_full_day: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Settimanale (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="4500.00"
+                        value={formData.price_low_season_week}
+                        onChange={(e) => setFormData({ ...formData, price_low_season_week: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Luglio */}
+                <div className="mb-6 bg-yellow-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-3 text-yellow-900">☀️ Luglio</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label>Mezza Giornata (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="700.00"
+                        value={formData.price_july_half_day}
+                        onChange={(e) => setFormData({ ...formData, price_july_half_day: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Giornata Intera (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="1200.00"
+                        value={formData.price_july_full_day}
+                        onChange={(e) => setFormData({ ...formData, price_july_full_day: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Settimanale (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="7000.00"
+                        value={formData.price_july_week}
+                        onChange={(e) => setFormData({ ...formData, price_july_week: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Agosto */}
+                <div className="mb-6 bg-orange-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-3 text-orange-900">🔥 Agosto</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label>Mezza Giornata (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="800.00"
+                        value={formData.price_august_half_day}
+                        onChange={(e) => setFormData({ ...formData, price_august_half_day: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Giornata Intera (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="1400.00"
+                        value={formData.price_august_full_day}
+                        onChange={(e) => setFormData({ ...formData, price_august_full_day: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Settimanale (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="8000.00"
+                        value={formData.price_august_week}
+                        onChange={(e) => setFormData({ ...formData, price_august_week: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Settembre */}
+                <div className="mb-6 bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-3 text-green-900">🍂 Settembre</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label>Mezza Giornata (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="600.00"
+                        value={formData.price_september_half_day}
+                        onChange={(e) => setFormData({ ...formData, price_september_half_day: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Giornata Intera (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="1000.00"
+                        value={formData.price_september_full_day}
+                        onChange={(e) => setFormData({ ...formData, price_september_full_day: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Settimanale (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="5500.00"
+                        value={formData.price_september_week}
+                        onChange={(e) => setFormData({ ...formData, price_september_week: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center gap-3">
