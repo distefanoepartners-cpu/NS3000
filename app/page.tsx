@@ -125,20 +125,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header Compatto con Logo */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-            Dashboard NS3000 RENT
-          </h1>
-          <p className="text-gray-600 text-sm">
-            Sistema di gestione prenotazioni barche e servizi marittimi
-          </p>
-        </div>
-        <img src="/icon-192.png" alt="NS3000" className="h-12 w-12" />
-      </div>
-
+    <div className="space-y-6">
       {/* Stats Cards - Compact */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-blue-500">
@@ -235,101 +222,6 @@ export default function DashboardPage() {
               </Link>
             )
           })}
-        </div>
-      </div>
-
-      {/* Quick Stats */}
-      <div>
-        <h2 className="text-xl font-bold mb-4 text-gray-800">Statistiche Rapide</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Prossime Partenze</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">Tour Capri</p>
-                    <p className="text-sm text-gray-600">Oggi ore 10:00</p>
-                  </div>
-                  <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                    8 PAX
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">Noleggio Gozzo</p>
-                    <p className="text-sm text-gray-600">Oggi ore 14:00</p>
-                  </div>
-                  <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded">
-                    4 PAX
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Barche in Manutenzione</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">Gozzo Sorrentino 750</p>
-                    <p className="text-sm text-gray-600">Motore in revisione</p>
-                  </div>
-                  <span className="text-xs font-semibold text-orange-600">2 giorni</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">Gommone Joker 23</p>
-                    <p className="text-sm text-gray-600">Pulizia hull</p>
-                  </div>
-                  <span className="text-xs font-semibold text-yellow-600">1 giorno</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Top Servizi</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Tour Capri</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full" style={{width: '85%'}} />
-                    </div>
-                    <span className="text-sm font-bold text-gray-900">85%</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Tour Positano</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-600 rounded-full" style={{width: '72%'}} />
-                    </div>
-                    <span className="text-sm font-bold text-gray-900">72%</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Noleggio Giornaliero</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full" style={{width: '68%'}} />
-                    </div>
-                    <span className="text-sm font-bold text-gray-900">68%</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
