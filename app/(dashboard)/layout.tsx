@@ -21,14 +21,15 @@ export default function DashboardLayout({
   }
 
   const menuItems = [
-    { href: '/boats', label: 'Barche', icon: Ship },
-    { href: '/services', label: 'Servizi', icon: Anchor },
-    { href: '/bookings', label: 'Prenotazioni', icon: Calendar },
-    { href: '/planning', label: 'Planning', icon: MapPin },
-    { href: '/customers', label: 'Clienti', icon: Users },
-    { href: '/suppliers', label: 'Fornitori', icon: Building2 },
-    { href: '/reports', label: 'Reports', icon: BarChart3 },
-  ]
+  { href: '/', label: 'Dashboard', icon: BarChart3 },  // ← AGGIUNGI QUESTA
+  { href: '/boats', label: 'Barche', icon: Ship },
+  { href: '/services', label: 'Servizi', icon: Anchor },
+  { href: '/bookings', label: 'Prenotazioni', icon: Calendar },
+  { href: '/planning', label: 'Planning', icon: MapPin },
+  { href: '/customers', label: 'Clienti', icon: Users },
+  { href: '/suppliers', label: 'Fornitori', icon: Building2 },
+  { href: '/reports', label: 'Reports', icon: BarChart3 },
+]
 
   return (
     <div className="min-h-screen bg-gray-50">
