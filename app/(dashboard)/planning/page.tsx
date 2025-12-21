@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { ChevronLeft, ChevronRight, Calendar, Ban } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, Ban, Info, Trash2 } from 'lucide-react'
 
 type Boat = {
   id: string
@@ -34,9 +34,11 @@ type Booking = {
   boat_id: string
   booking_date: string
   time_slot_id: string
-  customer: { first_name: string; last_name: string }
+  customer: { first_name: string; last_name: string; phone: string }
   service: { name: string }
   booking_status: { name: string; code: string; color_code: string; blocks_availability: boolean }
+  num_passengers: number | null
+  final_price: number
 }
 
 type Unavailability = {
@@ -54,9 +56,17 @@ export default function PlanningPage() {
   const [unavailability, setUnavailability] = useState<Unavailability[]>([])
   const [loading, setLoading] = useState(true)
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getMonday(new Date()))
+  
+  // Dialogs
   const [blockDialogOpen, setBlockDialogOpen] = useState(false)
+  const [bookingInfoDialogOpen, setBookingInfoDialogOpen] = useState(false)
+  const [unblockDialogOpen, setUnblockDialogOpen] = useState(false)
+  
+  // Selected data
   const [selectedBoat, setSelectedBoat] = useState<Boat | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [selectedUnavailability, setSelectedUnavailability] = useState<Unavailability | null>(null)
   
   const [blockFormData, setBlockFormData] = useState({
     start_date: '',
@@ -147,20 +157,29 @@ export default function PlanningPage() {
     )
   }
 
-  const isBoatUnavailable = (boatId: string, date: Date): boolean => {
+  const isBoatUnavailable = (boatId: string, date: Date): Unavailability | undefined => {
     const dateStr = formatDate(date)
-    return unavailability.some(
+    return unavailability.find(
       u => u.boat_id === boatId && dateStr >= u.start_date && dateStr <= u.end_date
     )
   }
 
-  const handleCellClick = (boat: Boat, date: Date) => {
-    const isUnavailable = isBoatUnavailable(boat.id, date)
+  const handleCellClick = (boat: Boat, date: Date, booking?: Booking) => {
+    if (booking) {
+      // Mostra info prenotazione
+      setSelectedBooking(booking)
+      setBookingInfoDialogOpen(true)
+      return
+    }
+
+    const unavail = isBoatUnavailable(boat.id, date)
     
-    if (isUnavailable) {
-      if (confirm('Vuoi rimuovere il blocco per questa data?')) {
-        removeBlock(boat.id, date)
-      }
+    if (unavail) {
+      // Mostra dialog conferma sblocco
+      setSelectedBoat(boat)
+      setSelectedDate(date)
+      setSelectedUnavailability(unavail)
+      setUnblockDialogOpen(true)
     } else {
       // Apri dialog per bloccare
       setSelectedBoat(boat)
@@ -202,16 +221,11 @@ export default function PlanningPage() {
     }
   }
 
-  const removeBlock = async (boatId: string, date: Date) => {
-    const dateStr = formatDate(date)
-    const block = unavailability.find(
-      u => u.boat_id === boatId && dateStr >= u.start_date && dateStr <= u.end_date
-    )
-
-    if (!block || !block.id) return
+  const handleUnblock = async () => {
+    if (!selectedUnavailability?.id) return
 
     try {
-      const response = await fetch(`/api/planning/unavailability/${block.id}`, {
+      const response = await fetch(`/api/planning/unavailability/${selectedUnavailability.id}`, {
         method: 'DELETE'
       })
 
@@ -220,6 +234,7 @@ export default function PlanningPage() {
         return
       }
 
+      setUnblockDialogOpen(false)
       loadPlanning()
     } catch (error) {
       console.error('Errore rimozione blocco:', error)
@@ -229,15 +244,15 @@ export default function PlanningPage() {
 
   const renderCell = (boat: Boat, date: Date, slot: TimeSlot) => {
     const booking = getBooking(boat.id, date, slot.id)
-    const isUnavailable = isBoatUnavailable(boat.id, date)
+    const unavail = isBoatUnavailable(boat.id, date)
 
-    if (isUnavailable) {
+    if (unavail) {
       // BLU = Indisponibile
       return (
         <div 
           className="h-full min-h-[60px] bg-blue-500 cursor-pointer hover:opacity-80 transition-opacity flex items-center justify-center"
           onClick={() => handleCellClick(boat, date)}
-          title="Non disponibile - Clicca per rimuovere blocco"
+          title={unavail.reason || "Non disponibile - Clicca per dettagli"}
         >
           <Ban className="h-4 w-4 text-white" />
         </div>
@@ -248,10 +263,11 @@ export default function PlanningPage() {
       // ROSSO = Prenotata
       return (
         <div
-          className="h-full min-h-[60px] bg-red-500 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => alert(`Prenotazione: ${booking.booking_number}\nCliente: ${booking.customer.first_name} ${booking.customer.last_name}\nServizio: ${booking.service.name}`)}
+          className="h-full min-h-[60px] bg-red-500 cursor-pointer hover:opacity-80 transition-opacity flex items-center justify-center"
+          onClick={() => handleCellClick(boat, date, booking)}
           title={`${booking.customer.last_name} - ${booking.service.name}`}
         >
+          <Info className="h-4 w-4 text-white" />
         </div>
       )
     }
@@ -303,7 +319,7 @@ export default function PlanningPage() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-red-500"></div>
-              <span>Prenotata</span>
+              <span>Prenotata (clicca per dettagli)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-blue-500"></div>
@@ -390,6 +406,62 @@ export default function PlanningPage() {
         </CardContent>
       </Card>
 
+      {/* Dialog Info Prenotazione */}
+      <Dialog open={bookingInfoDialogOpen} onOpenChange={setBookingInfoDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dettagli Prenotazione</DialogTitle>
+          </DialogHeader>
+
+          {selectedBooking && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">N° Prenotazione</p>
+                  <p className="font-semibold">{selectedBooking.booking_number}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Stato</p>
+                  <Badge style={{ backgroundColor: selectedBooking.booking_status.color_code || '#gray' }}>
+                    {selectedBooking.booking_status.name}
+                  </Badge>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-600">Cliente</p>
+                <p className="font-semibold">{selectedBooking.customer.first_name} {selectedBooking.customer.last_name}</p>
+                <p className="text-sm text-gray-500">{selectedBooking.customer.phone}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-600">Servizio</p>
+                <p className="font-semibold">{selectedBooking.service.name}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {selectedBooking.num_passengers && (
+                  <div>
+                    <p className="text-sm text-gray-600">Passeggeri</p>
+                    <p className="font-semibold">{selectedBooking.num_passengers}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-600">Prezzo</p>
+                  <p className="font-semibold">€ {selectedBooking.final_price.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button onClick={() => setBookingInfoDialogOpen(false)}>
+              Chiudi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog Blocco Date */}
       <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
         <DialogContent>
@@ -443,6 +515,40 @@ export default function PlanningPage() {
               disabled={!blockFormData.start_date || !blockFormData.end_date}
             >
               Blocca
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Conferma Sblocco */}
+      <Dialog open={unblockDialogOpen} onOpenChange={setUnblockDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sblocca Disponibilità</DialogTitle>
+            <DialogDescription>
+              {selectedBoat?.name} - {selectedDate && formatDateDisplay(selectedDate)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {selectedUnavailability?.reason && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">Motivo blocco:</p>
+                <p className="font-medium">{selectedUnavailability.reason}</p>
+              </div>
+            )}
+            <p className="text-gray-700">
+              Sei sicuro di voler rimuovere il blocco per questa data?
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setUnblockDialogOpen(false)}>
+              Annulla
+            </Button>
+            <Button variant="destructive" onClick={handleUnblock}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Sblocca
             </Button>
           </div>
         </DialogContent>
