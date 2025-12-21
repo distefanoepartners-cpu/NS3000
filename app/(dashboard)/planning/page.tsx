@@ -4,7 +4,16 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { ChevronLeft, ChevronRight, Calendar, Ban } from 'lucide-react'
 
 type Boat = {
   id: string
@@ -31,6 +40,7 @@ type Booking = {
 }
 
 type Unavailability = {
+  id?: string
   boat_id: string
   start_date: string
   end_date: string
@@ -44,6 +54,15 @@ export default function PlanningPage() {
   const [unavailability, setUnavailability] = useState<Unavailability[]>([])
   const [loading, setLoading] = useState(true)
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getMonday(new Date()))
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false)
+  const [selectedBoat, setSelectedBoat] = useState<Boat | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  
+  const [blockFormData, setBlockFormData] = useState({
+    start_date: '',
+    end_date: '',
+    reason: ''
+  })
 
   function getMonday(date: Date): Date {
     const d = new Date(date)
@@ -78,7 +97,16 @@ export default function PlanningPage() {
       const data = await response.json()
 
       setBoats(data.boats || [])
-      setSlots(data.slots || [])
+      
+      // Rimuovi duplicati di Full Day
+      const uniqueSlots = (data.slots || []).filter((slot: TimeSlot, index: number, self: TimeSlot[]) => {
+        if (slot.name === 'Full Day') {
+          return index === self.findIndex(s => s.name === 'Full Day')
+        }
+        return true
+      })
+      setSlots(uniqueSlots)
+      
       setBookings(data.bookings || [])
       setUnavailability(data.unavailability || [])
     } catch (error) {
@@ -126,6 +154,79 @@ export default function PlanningPage() {
     )
   }
 
+  const handleCellClick = (boat: Boat, date: Date) => {
+    const isUnavailable = isBoatUnavailable(boat.id, date)
+    
+    if (isUnavailable) {
+      if (confirm('Vuoi rimuovere il blocco per questa data?')) {
+        removeBlock(boat.id, date)
+      }
+    } else {
+      // Apri dialog per bloccare
+      setSelectedBoat(boat)
+      setSelectedDate(date)
+      setBlockFormData({
+        start_date: formatDate(date),
+        end_date: formatDate(date),
+        reason: ''
+      })
+      setBlockDialogOpen(true)
+    }
+  }
+
+  const handleBlockSave = async () => {
+    if (!selectedBoat) return
+
+    try {
+      const response = await fetch('/api/planning/unavailability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          boat_id: selectedBoat.id,
+          start_date: blockFormData.start_date,
+          end_date: blockFormData.end_date,
+          reason: blockFormData.reason || null
+        })
+      })
+
+      if (!response.ok) {
+        alert('Errore durante il blocco')
+        return
+      }
+
+      setBlockDialogOpen(false)
+      loadPlanning()
+    } catch (error) {
+      console.error('Errore blocco:', error)
+      alert('Errore durante il blocco')
+    }
+  }
+
+  const removeBlock = async (boatId: string, date: Date) => {
+    const dateStr = formatDate(date)
+    const block = unavailability.find(
+      u => u.boat_id === boatId && dateStr >= u.start_date && dateStr <= u.end_date
+    )
+
+    if (!block || !block.id) return
+
+    try {
+      const response = await fetch(`/api/planning/unavailability/${block.id}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        alert('Errore durante la rimozione del blocco')
+        return
+      }
+
+      loadPlanning()
+    } catch (error) {
+      console.error('Errore rimozione blocco:', error)
+      alert('Errore durante la rimozione del blocco')
+    }
+  }
+
   const renderCell = (boat: Boat, date: Date, slot: TimeSlot) => {
     const booking = getBooking(boat.id, date, slot.id)
     const isUnavailable = isBoatUnavailable(boat.id, date)
@@ -134,9 +235,11 @@ export default function PlanningPage() {
       // BLU = Indisponibile
       return (
         <div 
-          className="h-full min-h-[60px] bg-blue-500 cursor-not-allowed"
-          title="Non disponibile"
+          className="h-full min-h-[60px] bg-blue-500 cursor-pointer hover:opacity-80 transition-opacity flex items-center justify-center"
+          onClick={() => handleCellClick(boat, date)}
+          title="Non disponibile - Clicca per rimuovere blocco"
         >
+          <Ban className="h-4 w-4 text-white" />
         </div>
       )
     }
@@ -157,7 +260,8 @@ export default function PlanningPage() {
     return (
       <div 
         className="h-full min-h-[60px] bg-white hover:bg-gray-50 cursor-pointer transition-colors border-r border-b"
-        title="Disponibile"
+        onClick={() => handleCellClick(boat, date)}
+        title="Disponibile - Clicca per bloccare"
       >
       </div>
     )
@@ -195,7 +299,7 @@ export default function PlanningPage() {
           <div className="flex gap-6 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-white border-2 border-gray-300"></div>
-              <span>Libera</span>
+              <span>Libera (clicca per bloccare)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-red-500"></div>
@@ -203,7 +307,7 @@ export default function PlanningPage() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-blue-500"></div>
-              <span>Indisponibile</span>
+              <span>Indisponibile (clicca per sbloccare)</span>
             </div>
           </div>
         </CardContent>
@@ -285,6 +389,64 @@ export default function PlanningPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog Blocco Date */}
+      <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Blocca Disponibilità</DialogTitle>
+            <DialogDescription>
+              {selectedBoat?.name} - {selectedDate && formatDateDisplay(selectedDate)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start_date">Data Inizio *</Label>
+                <Input
+                  id="start_date"
+                  type="date"
+                  value={blockFormData.start_date}
+                  onChange={(e) => setBlockFormData({ ...blockFormData, start_date: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="end_date">Data Fine *</Label>
+                <Input
+                  id="end_date"
+                  type="date"
+                  value={blockFormData.end_date}
+                  onChange={(e) => setBlockFormData({ ...blockFormData, end_date: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reason">Motivo</Label>
+              <Input
+                id="reason"
+                value={blockFormData.reason}
+                onChange={(e) => setBlockFormData({ ...blockFormData, reason: e.target.value })}
+                placeholder="Es. Manutenzione, Revisione motore..."
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setBlockDialogOpen(false)}>
+              Annulla
+            </Button>
+            <Button
+              onClick={handleBlockSave}
+              disabled={!blockFormData.start_date || !blockFormData.end_date}
+            >
+              Blocca
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
