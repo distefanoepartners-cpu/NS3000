@@ -12,14 +12,18 @@ export async function GET(
     // Carica l'estratto conto
     const { data: statement, error: statementError } = await supabaseAdmin
       .from('supplier_statements')
-      .select(`
-        *,
-        supplier:suppliers(name, email, commission_percentage)
-      `)
+      .select('*')
       .eq('id', id)
       .single()
 
     if (statementError) throw statementError
+
+    // Carica il fornitore separatamente
+    const { data: supplier } = await supabaseAdmin
+      .from('suppliers')
+      .select('name, email, commission_percentage')
+      .eq('id', statement.supplier_id)
+      .single()
 
     // Carica le prenotazioni del periodo
     const { data: bookings, error: bookingsError } = await supabaseAdmin
@@ -42,7 +46,10 @@ export async function GET(
     if (bookingsError) throw bookingsError
 
     return NextResponse.json({
-      statement,
+      statement: {
+        ...statement,
+        supplier
+      },
       bookings: bookings || []
     })
   } catch (error: any) {
