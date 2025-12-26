@@ -66,15 +66,17 @@ export async function PUT(
     // DEBUG: Log del payload processato
     console.log('PUT /api/bookings/[id] - Payload to DB:', JSON.stringify(payload, null, 2))
 
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('bookings')
       .update(payload)
       .eq('id', params.id)
-      .select()
-      .single()
 
-    if (error) throw error
-    return NextResponse.json(data)
+    if (error) {
+      console.error('Supabase error:', error)
+      throw error
+    }
+    
+    return NextResponse.json({ success: true, id: params.id })
   } catch (error: any) {
     console.error('Errore aggiornamento prenotazione:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
