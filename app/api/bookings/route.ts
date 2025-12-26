@@ -53,6 +53,7 @@ export async function POST(request: Request) {
       deposit_amount: body.deposit_amount || 0,
       balance_amount: body.balance_amount || 0,
       security_deposit: body.security_deposit || 0,
+      payment_method_id: body.payment_method_id || null,
       total_paid: body.total_paid || 0,
       notes: body.notes || null
     }

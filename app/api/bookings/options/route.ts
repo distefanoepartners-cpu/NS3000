@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-client'
 
 export async function GET() {
   try {
-    const [customers, boats, services, suppliers, ports, timeSlots, statuses] = await Promise.all([
+    const [customers, boats, services, suppliers, ports, timeSlots, statuses, paymentMethods] = await Promise.all([
       supabaseAdmin.from('customers').select('id, first_name, last_name').order('last_name'),
       supabaseAdmin.from('boats').select(`
         id, 
@@ -35,11 +35,12 @@ export async function GET() {
         price_charter_august_full_day,
         price_charter_august_week
       `).eq('is_active', true).order('name'),
-      supabaseAdmin.from('services').select('id, name, type, price_per_person, is_collective_tour').order('name'),
+      supabaseAdmin.from('services').select('id, name, type, price_per_person, is_collective_tour, is_on_demand').order('name'),
       supabaseAdmin.from('suppliers').select('id, name').order('name'),
       supabaseAdmin.from('ports').select('id, name, code').order('name'),
       supabaseAdmin.from('time_slots').select('id, name, start_time, end_time').order('start_time'),
-      supabaseAdmin.from('booking_statuses').select('id, name, code').order('name')
+      supabaseAdmin.from('booking_statuses').select('id, name, code').order('name'),
+      supabaseAdmin.from('payment_methods').select('id, name, code').eq('is_active', true).order('name')
     ])
 
     return NextResponse.json({
@@ -49,7 +50,8 @@ export async function GET() {
       suppliers: suppliers.data || [],
       ports: ports.data || [],
       timeSlots: timeSlots.data || [],
-      statuses: statuses.data || []
+      statuses: statuses.data || [],
+      paymentMethods: paymentMethods.data || []
     })
   } catch (error: any) {
     console.error('Errore caricamento opzioni:', error)

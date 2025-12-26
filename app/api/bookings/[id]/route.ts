@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-client'
 
-// GET - Lista tutte le prenotazioni
-export async function GET() {
+// GET - Recupera singola prenotazione
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const { data, error } = await supabaseAdmin
       .from('bookings')
@@ -16,27 +19,26 @@ export async function GET() {
         time_slot:time_slots(id, name, start_time, end_time),
         booking_status:booking_statuses(id, name, code, color_code)
       `)
-      .order('created_at', { ascending: false })
+      .eq('id', params.id)
+      .single()
 
     if (error) throw error
-    return NextResponse.json(data || [])
+    return NextResponse.json(data)
   } catch (error: any) {
-    console.error('Errore caricamento prenotazioni:', error)
+    console.error('Errore caricamento prenotazione:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// POST - Crea nuova prenotazione
-export async function POST(request: Request) {
+// PUT - Aggiorna prenotazione completa
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const body = await request.json()
 
-    // Genera numero prenotazione
-    const date = new Date()
-    const booking_number = `BK-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}-${Date.now().toString().slice(-6)}`
-
     const payload = {
-      booking_number,
       customer_id: body.customer_id,
       boat_id: body.boat_id,
       service_id: body.service_id,
@@ -53,37 +55,64 @@ export async function POST(request: Request) {
       deposit_amount: body.deposit_amount || 0,
       balance_amount: body.balance_amount || 0,
       security_deposit: body.security_deposit || 0,
+      payment_method_id: body.payment_method_id || null,
       total_paid: body.total_paid || 0,
       notes: body.notes || null
     }
 
-    // Se è Full Day, verifica disponibilità
-    if (body._is_full_day) {
-      const { data: existing } = await supabaseAdmin
-        .from('bookings')
-        .select('id')
-        .eq('boat_id', body.boat_id)
-        .eq('booking_date', body.booking_date)
-        .neq('booking_status_id', (await supabaseAdmin.from('booking_statuses').select('id').eq('code', 'cancelled').single()).data?.id)
-
-      if (existing && existing.length > 0) {
-        return NextResponse.json(
-          { error: 'Barca già prenotata per questa data' },
-          { status: 400 }
-        )
-      }
-    }
-
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .insert(payload)
+      .update(payload)
+      .eq('id', params.id)
       .select()
       .single()
 
     if (error) throw error
-    return NextResponse.json(data, { status: 201 })
+    return NextResponse.json(data)
   } catch (error: any) {
-    console.error('Errore creazione prenotazione:', error)
+    console.error('Errore aggiornamento prenotazione:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// PATCH - Aggiorna solo alcuni campi
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json()
+
+    const { data, error } = await supabaseAdmin
+      .from('bookings')
+      .update(body)
+      .eq('id', params.id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return NextResponse.json(data)
+  } catch (error: any) {
+    console.error('Errore aggiornamento parziale prenotazione:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// DELETE - Elimina prenotazione
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { error } = await supabaseAdmin
+      .from('bookings')
+      .delete()
+      .eq('id', params.id)
+
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Errore eliminazione prenotazione:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

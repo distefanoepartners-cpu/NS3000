@@ -64,11 +64,13 @@ type BookingOption = {
     type: string
     price_per_person: number | null
     is_collective_tour: boolean
+    is_on_demand: boolean
   }>
   suppliers: Array<{ id: string; name: string }>
   ports: Array<{ id: string; name: string; code: string }>
   timeSlots: Array<{ id: string; name: string; start_time: string; end_time: string }>
   statuses: Array<{ id: string; name: string; code: string }>
+  paymentMethods: Array<{ id: string; name: string; code: string }>
 }
 
 type Booking = {
@@ -117,6 +119,7 @@ export default function BookingsPage() {
     deposit_amount: '0',
     balance_amount: '0',
     security_deposit: '0',
+    payment_method_id: '', // NUOVO
     notes: ''
   })
 
@@ -153,15 +156,15 @@ export default function BookingsPage() {
     const service = options.services.find(s => s.id === serviceId)
     if (!service) return null
 
+    // SERVIZI ON-DEMAND - Nessun calcolo automatico (prezzo manuale)
+    if (service.is_on_demand) {
+      return null
+    }
+
     // TOUR COLLETTIVO - Prezzo per persona
     if (service.is_collective_tour && service.price_per_person) {
       const passengers = parseInt(numPassengers) || 1
       return service.price_per_person * passengers
-    }
-
-    // TAXI BOAT - Nessun calcolo automatico (prezzo manuale)
-    if (service.name.toLowerCase().includes('taxi')) {
-      return null
     }
 
     // NOLEGGIO / LOCAZIONE - Prezzo stagionale
@@ -278,6 +281,7 @@ export default function BookingsPage() {
       deposit_amount: '0',
       balance_amount: '0',
       security_deposit: '0',
+      payment_method_id: '',
       notes: ''
     })
     setEditingBooking(null)
@@ -323,6 +327,7 @@ export default function BookingsPage() {
       deposit_amount: booking.deposit_amount.toString(),
       balance_amount: booking.balance_amount.toString(),
       security_deposit: booking.security_deposit?.toString() || '0',
+      payment_method_id: (booking as any).payment_method_id || '',
       notes: booking.notes || ''
     })
     setDialogOpen(true)
@@ -386,6 +391,7 @@ export default function BookingsPage() {
         deposit_amount: parseFloat(formData.deposit_amount) || 0,
         balance_amount: parseFloat(formData.balance_amount) || 0,
         security_deposit: parseFloat(formData.security_deposit) || 0,
+        payment_method_id: formData.payment_method_id || null,
         total_paid: 0,
         notes: formData.notes || null
       }
@@ -711,7 +717,7 @@ export default function BookingsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="deposit_amount">Acconto (€)</Label>
                     <Input
@@ -744,6 +750,21 @@ export default function BookingsPage() {
                       readOnly
                       className="bg-gray-50"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_method_id">Metodo Pagamento</Label>
+                    <select
+                      id="payment_method_id"
+                      value={formData.payment_method_id}
+                      onChange={(e) => setFormData({ ...formData, payment_method_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">Seleziona metodo...</option>
+                      {options.paymentMethods.map(pm => (
+                        <option key={pm.id} value={pm.id}>{pm.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
