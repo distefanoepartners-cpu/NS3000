@@ -316,7 +316,7 @@ export default function BookingsPage() {
       boat_id: booking.boat?.id || '',
       service_id: booking.service?.id || '',
       service_type: (booking as any).service_type || 'rental',
-      supplier_id: booking.supplier?.id || '',
+      supplier_id: booking.supplier?.id ? booking.supplier.id : '',
       port_id: booking.port?.id || '',
       time_slot_id: booking.time_slot?.id || '',
       custom_time: booking.custom_time || '',
