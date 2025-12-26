@@ -460,7 +460,7 @@ export default function BookingsPage() {
                       id="customer_id"
                       value={formData.customer_id}
                       onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="flex-1 max-w-[calc(100%-3rem)] px-3 py-2 border border-gray-300 rounded-md"
                     >
                       <option value="">Seleziona cliente...</option>
                       {options.customers.map(c => (
@@ -474,6 +474,7 @@ export default function BookingsPage() {
                       variant="outline"
                       onClick={() => setCustomerDialogOpen(true)}
                       title="Crea nuovo cliente"
+                      className="shrink-0"
                     >
                       <UserPlus className="h-4 w-4" />
                     </Button>
