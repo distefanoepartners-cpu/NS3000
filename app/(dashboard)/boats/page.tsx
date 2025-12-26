@@ -29,15 +29,17 @@ type Boat = {
   id: string
   name: string
   boat_type: string
-  capacity: number | null
-  length: number | null
-  engine_power: number | null
-  fuel_type: string | null
-  year: number | null
+  max_passengers: number | null
+  length_meters: number | null
   registration_number: string | null
   is_active: boolean
-  notes: string | null
+  description: string | null
   image_url: string | null
+  technical_specs: {
+    engine_power: number | null
+    fuel_type: string | null
+    year: number | null
+  } | null
   price_low_season_half_day: number | null
   price_low_season_full_day: number | null
   price_low_season_week: number | null
@@ -154,14 +156,14 @@ export default function BoatsPage() {
     setFormData({
       name: boat.name,
       boat_type: boat.boat_type,
-      capacity: boat.capacity?.toString() || '',
-      length: boat.length?.toString() || '',
-      engine_power: boat.engine_power?.toString() || '',
-      fuel_type: boat.fuel_type || '',
-      year: boat.year?.toString() || '',
+      capacity: boat.max_passengers?.toString() || '',
+      length: boat.length_meters?.toString() || '',
+      engine_power: boat.technical_specs?.engine_power?.toString() || '',
+      fuel_type: boat.technical_specs?.fuel_type || '',
+      year: boat.technical_specs?.year?.toString() || '',
       registration_number: boat.registration_number || '',
       is_active: boat.is_active,
-      notes: boat.notes || '',
+      notes: boat.description || '',
       price_low_season_half_day: boat.price_low_season_half_day?.toString() || '',
       price_low_season_full_day: boat.price_low_season_full_day?.toString() || '',
       price_low_season_week: boat.price_low_season_week?.toString() || '',
@@ -642,9 +644,9 @@ export default function BoatsPage() {
                     </TableCell>
                     <TableCell className="font-medium">{boat.name}</TableCell>
                     <TableCell>{boat.boat_type}</TableCell>
-                    <TableCell>{boat.capacity ? `${boat.capacity} pax` : '-'}</TableCell>
-                    <TableCell>{boat.length ? `${boat.length}m` : '-'}</TableCell>
-                    <TableCell>{boat.engine_power ? `${boat.engine_power} HP` : '-'}</TableCell>
+                    <TableCell>{boat.max_passengers ? `${boat.max_passengers} pax` : '-'}</TableCell>
+                    <TableCell>{boat.length_meters ? `${boat.length_meters}m` : '-'}</TableCell>
+                    <TableCell>{boat.technical_specs?.engine_power ? `${boat.technical_specs.engine_power} HP` : '-'}</TableCell>
                     <TableCell>
                       <Badge variant={boat.is_active ? 'default' : 'secondary'}>
                         {boat.is_active ? 'Attiva' : 'Inattiva'}
