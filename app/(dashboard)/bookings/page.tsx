@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Pencil, Trash2, Calendar, Clock, UserPlus } from 'lucide-react'
+import { Plus, Pencil, Trash2, Calendar, Clock, UserPlus, User } from 'lucide-react'
 
 type BookingOption = {
   customers: Array<{ id: string; first_name: string; last_name: string }>
@@ -110,7 +110,11 @@ export default function BookingsPage() {
     phone: '',
     document_type: 'Carta Identità',
     document_number: '',
-    has_boat_license: false
+    document_expiry: '',
+    has_boat_license: false,
+    boat_license_number: '',
+    boat_license_expiry: '',
+    notes: ''
   })
 
   useEffect(() => {
@@ -257,7 +261,11 @@ export default function BookingsPage() {
       phone: '',
       document_type: 'Carta Identità',
       document_number: '',
-      has_boat_license: false
+      document_expiry: '',
+      has_boat_license: false,
+      boat_license_number: '',
+      boat_license_expiry: '',
+      notes: ''
     })
   }
 
@@ -296,10 +304,16 @@ export default function BookingsPage() {
     }
 
     try {
+      const payload = {
+        ...customerFormData,
+        document_expiry: customerFormData.document_expiry || null,
+        boat_license_expiry: customerFormData.boat_license_expiry || null
+      }
+
       const response = await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(customerFormData)
+        body: JSON.stringify(payload)
       })
 
       if (!response.ok) {
@@ -727,98 +741,158 @@ export default function BookingsPage() {
         </Dialog>
       </div>
 
-      {/* Dialog Crea Cliente */}
+      {/* Dialog Crea Cliente COMPLETO */}
       <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Crea Nuovo Cliente</DialogTitle>
             <DialogDescription>
-              Inserisci i dati base del cliente
+              Inserisci i dati anagrafici del cliente
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="new_first_name">Nome *</Label>
-                <Input
-                  id="new_first_name"
-                  value={customerFormData.first_name}
-                  onChange={(e) => setCustomerFormData({ ...customerFormData, first_name: e.target.value })}
-                  placeholder="Mario"
-                />
+          <div className="space-y-6 py-4">
+            {/* Dati Anagrafici */}
+            <div className="space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Dati Anagrafici
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new_first_name">Nome *</Label>
+                  <Input
+                    id="new_first_name"
+                    value={customerFormData.first_name}
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, first_name: e.target.value })}
+                    placeholder="Mario"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new_last_name">Cognome *</Label>
+                  <Input
+                    id="new_last_name"
+                    value={customerFormData.last_name}
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, last_name: e.target.value })}
+                    placeholder="Rossi"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="new_last_name">Cognome *</Label>
-                <Input
-                  id="new_last_name"
-                  value={customerFormData.last_name}
-                  onChange={(e) => setCustomerFormData({ ...customerFormData, last_name: e.target.value })}
-                  placeholder="Rossi"
-                />
-              </div>
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new_email">Email</Label>
+                  <Input
+                    id="new_email"
+                    type="email"
+                    value={customerFormData.email}
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, email: e.target.value })}
+                    placeholder="mario.rossi@email.com"
+                  />
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="new_email">Email</Label>
-                <Input
-                  id="new_email"
-                  type="email"
-                  value={customerFormData.email}
-                  onChange={(e) => setCustomerFormData({ ...customerFormData, email: e.target.value })}
-                  placeholder="mario.rossi@email.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="new_phone">Telefono</Label>
-                <Input
-                  id="new_phone"
-                  value={customerFormData.phone}
-                  onChange={(e) => setCustomerFormData({ ...customerFormData, phone: e.target.value })}
-                  placeholder="+39 333 1234567"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="new_document_type">Tipo Documento</Label>
-                <select
-                  id="new_document_type"
-                  value={customerFormData.document_type}
-                  onChange={(e) => setCustomerFormData({ ...customerFormData, document_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="Carta Identità">Carta d'Identità</option>
-                  <option value="Passaporto">Passaporto</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="new_document_number">Numero Documento</Label>
-                <Input
-                  id="new_document_number"
-                  value={customerFormData.document_number}
-                  onChange={(e) => setCustomerFormData({ ...customerFormData, document_number: e.target.value })}
-                  placeholder="ES1234567"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="new_phone">Telefono</Label>
+                  <Input
+                    id="new_phone"
+                    value={customerFormData.phone}
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, phone: e.target.value })}
+                    placeholder="+39 333 1234567"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="new_has_boat_license"
-                checked={customerFormData.has_boat_license}
-                onChange={(e) => setCustomerFormData({ ...customerFormData, has_boat_license: e.target.checked })}
-                className="w-4 h-4"
+            {/* Documento */}
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="font-semibold">Documento di Identità</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new_document_type">Tipo Documento</Label>
+                  <select
+                    id="new_document_type"
+                    value={customerFormData.document_type}
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, document_type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="Carta Identità">Carta d'Identità</option>
+                    <option value="Passaporto">Passaporto</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new_document_number">Numero Documento</Label>
+                  <Input
+                    id="new_document_number"
+                    value={customerFormData.document_number}
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, document_number: e.target.value })}
+                    placeholder="ES1234567"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new_document_expiry">Scadenza</Label>
+                  <Input
+                    id="new_document_expiry"
+                    type="date"
+                    value={customerFormData.document_expiry}
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, document_expiry: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Patente Nautica */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="new_has_boat_license"
+                  checked={customerFormData.has_boat_license}
+                  onChange={(e) => setCustomerFormData({ ...customerFormData, has_boat_license: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="new_has_boat_license" className="font-semibold cursor-pointer">
+                  Possiede Patente Nautica
+                </Label>
+              </div>
+
+              {customerFormData.has_boat_license && (
+                <div className="grid grid-cols-2 gap-4 pl-7">
+                  <div className="space-y-2">
+                    <Label htmlFor="new_boat_license_number">Numero Patente</Label>
+                    <Input
+                      id="new_boat_license_number"
+                      value={customerFormData.boat_license_number}
+                      onChange={(e) => setCustomerFormData({ ...customerFormData, boat_license_number: e.target.value })}
+                      placeholder="PN123456"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="new_boat_license_expiry">Scadenza</Label>
+                    <Input
+                      id="new_boat_license_expiry"
+                      type="date"
+                      value={customerFormData.boat_license_expiry}
+                      onChange={(e) => setCustomerFormData({ ...customerFormData, boat_license_expiry: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Note */}
+            <div className="space-y-2 pt-4 border-t">
+              <Label htmlFor="new_notes">Note</Label>
+              <textarea
+                id="new_notes"
+                value={customerFormData.notes}
+                onChange={(e) => setCustomerFormData({ ...customerFormData, notes: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
+                placeholder="Note aggiuntive..."
               />
-              <Label htmlFor="new_has_boat_license" className="cursor-pointer">
-                Possiede Patente Nautica
-              </Label>
             </div>
           </div>
 
