@@ -95,8 +95,7 @@ export async function PUT(
     }
     
     // DEBUG: Log del payload processato
-    console.log('PUT /api/bookings/[id] - Payload to DB:', JSON.stringify(payload, null, 2))
-
+     
     const payload = {
       customer_id: body.customer_id,
       boat_id: body.boat_id,
