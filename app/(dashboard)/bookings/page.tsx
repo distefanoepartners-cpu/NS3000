@@ -315,7 +315,7 @@ export default function BookingsPage() {
       customer_id: booking.customer?.id || '',
       boat_id: booking.boat?.id || '',
       service_id: booking.service?.id || '',
-      service_type: (booking as any).service_type || 'rental', // Carica tipo servizio
+      service_type: (booking as any).service_type || 'rental',
       supplier_id: booking.supplier?.id || '',
       port_id: booking.port?.id || '',
       time_slot_id: booking.time_slot?.id || '',
@@ -327,7 +327,7 @@ export default function BookingsPage() {
       deposit_amount: booking.deposit_amount.toString(),
       balance_amount: booking.balance_amount.toString(),
       security_deposit: booking.security_deposit?.toString() || '0',
-      payment_method_id: (booking as any).payment_method_id || '',
+      payment_method_id: (booking as any).payment_method_id ? (booking as any).payment_method_id : '',
       notes: booking.notes || ''
     })
     setDialogOpen(true)
