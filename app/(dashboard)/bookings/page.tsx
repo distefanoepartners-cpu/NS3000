@@ -584,7 +584,7 @@ export default function BookingsPage() {
               {/* Sezione Prezzi */}
               <div className="space-y-4 pt-4 border-t">
                 <h3 className="font-semibold">Prezzi e Pagamenti</h3>
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="base_price">Listino (€)</Label>
                     <Input
@@ -621,6 +621,20 @@ export default function BookingsPage() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="security_deposit">Cauzione (€)</Label>
+                    <Input
+                      id="security_deposit"
+                      type="number"
+                      step="0.01"
+                      value={formData.security_deposit}
+                      onChange={(e) => setFormData({ ...formData, security_deposit: e.target.value })}
+                      placeholder="200.00"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="deposit_amount">Acconto (€)</Label>
                     <Input
                       id="deposit_amount"
@@ -651,18 +665,6 @@ export default function BookingsPage() {
                       value={formData.balance_amount}
                       readOnly
                       className="bg-gray-50"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="security_deposit">Cauzione (€)</Label>
-                    <Input
-                      id="security_deposit"
-                      type="number"
-                      step="0.01"
-                      value={formData.security_deposit}
-                      onChange={(e) => setFormData({ ...formData, security_deposit: e.target.value })}
-                      placeholder="200.00"
                     />
                   </div>
                 </div>
