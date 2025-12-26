@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Ship, Anchor } from 'lucide-react'
 
 type Boat = {
   id: string
@@ -40,18 +40,34 @@ type Boat = {
     fuel_type: string | null
     year: number | null
   } | null
-  price_low_season_half_day: number | null
-  price_low_season_full_day: number | null
-  price_low_season_week: number | null
-  price_july_half_day: number | null
-  price_july_full_day: number | null
-  price_july_week: number | null
-  price_august_half_day: number | null
-  price_august_full_day: number | null
-  price_august_week: number | null
-  price_september_half_day: number | null
-  price_september_full_day: number | null
-  price_september_week: number | null
+  has_rental: boolean
+  has_charter: boolean
+  // Prezzi NOLEGGIO
+  price_rental_apr_may_oct_half_day: number | null
+  price_rental_apr_may_oct_full_day: number | null
+  price_rental_apr_may_oct_week: number | null
+  price_rental_june_half_day: number | null
+  price_rental_june_full_day: number | null
+  price_rental_june_week: number | null
+  price_rental_july_sept_half_day: number | null
+  price_rental_july_sept_full_day: number | null
+  price_rental_july_sept_week: number | null
+  price_rental_august_half_day: number | null
+  price_rental_august_full_day: number | null
+  price_rental_august_week: number | null
+  // Prezzi LOCAZIONE
+  price_charter_apr_may_oct_half_day: number | null
+  price_charter_apr_may_oct_full_day: number | null
+  price_charter_apr_may_oct_week: number | null
+  price_charter_june_half_day: number | null
+  price_charter_june_full_day: number | null
+  price_charter_june_week: number | null
+  price_charter_july_sept_half_day: number | null
+  price_charter_july_sept_full_day: number | null
+  price_charter_july_sept_week: number | null
+  price_charter_august_half_day: number | null
+  price_charter_august_full_day: number | null
+  price_charter_august_week: number | null
 }
 
 export default function BoatsPage() {
@@ -73,19 +89,34 @@ export default function BoatsPage() {
     registration_number: '',
     is_active: true,
     notes: '',
-    // Prezzi stagionali
-    price_low_season_half_day: '',
-    price_low_season_full_day: '',
-    price_low_season_week: '',
-    price_july_half_day: '',
-    price_july_full_day: '',
-    price_july_week: '',
-    price_august_half_day: '',
-    price_august_full_day: '',
-    price_august_week: '',
-    price_september_half_day: '',
-    price_september_full_day: '',
-    price_september_week: ''
+    has_rental: true,
+    has_charter: false,
+    // Prezzi NOLEGGIO
+    price_rental_apr_may_oct_half_day: '',
+    price_rental_apr_may_oct_full_day: '',
+    price_rental_apr_may_oct_week: '',
+    price_rental_june_half_day: '',
+    price_rental_june_full_day: '',
+    price_rental_june_week: '',
+    price_rental_july_sept_half_day: '',
+    price_rental_july_sept_full_day: '',
+    price_rental_july_sept_week: '',
+    price_rental_august_half_day: '',
+    price_rental_august_full_day: '',
+    price_rental_august_week: '',
+    // Prezzi LOCAZIONE
+    price_charter_apr_may_oct_half_day: '',
+    price_charter_apr_may_oct_full_day: '',
+    price_charter_apr_may_oct_week: '',
+    price_charter_june_half_day: '',
+    price_charter_june_full_day: '',
+    price_charter_june_week: '',
+    price_charter_july_sept_half_day: '',
+    price_charter_july_sept_full_day: '',
+    price_charter_july_sept_week: '',
+    price_charter_august_half_day: '',
+    price_charter_august_full_day: '',
+    price_charter_august_week: ''
   })
 
   useEffect(() => {
@@ -116,18 +147,32 @@ export default function BoatsPage() {
       registration_number: '',
       is_active: true,
       notes: '',
-      price_low_season_half_day: '',
-      price_low_season_full_day: '',
-      price_low_season_week: '',
-      price_july_half_day: '',
-      price_july_full_day: '',
-      price_july_week: '',
-      price_august_half_day: '',
-      price_august_full_day: '',
-      price_august_week: '',
-      price_september_half_day: '',
-      price_september_full_day: '',
-      price_september_week: ''
+      has_rental: true,
+      has_charter: false,
+      price_rental_apr_may_oct_half_day: '',
+      price_rental_apr_may_oct_full_day: '',
+      price_rental_apr_may_oct_week: '',
+      price_rental_june_half_day: '',
+      price_rental_june_full_day: '',
+      price_rental_june_week: '',
+      price_rental_july_sept_half_day: '',
+      price_rental_july_sept_full_day: '',
+      price_rental_july_sept_week: '',
+      price_rental_august_half_day: '',
+      price_rental_august_full_day: '',
+      price_rental_august_week: '',
+      price_charter_apr_may_oct_half_day: '',
+      price_charter_apr_may_oct_full_day: '',
+      price_charter_apr_may_oct_week: '',
+      price_charter_june_half_day: '',
+      price_charter_june_full_day: '',
+      price_charter_june_week: '',
+      price_charter_july_sept_half_day: '',
+      price_charter_july_sept_full_day: '',
+      price_charter_july_sept_week: '',
+      price_charter_august_half_day: '',
+      price_charter_august_full_day: '',
+      price_charter_august_week: ''
     })
     setImageFile(null)
     setImagePreview(null)
@@ -164,18 +209,34 @@ export default function BoatsPage() {
       registration_number: boat.registration_number || '',
       is_active: boat.is_active,
       notes: boat.description || '',
-      price_low_season_half_day: boat.price_low_season_half_day?.toString() || '',
-      price_low_season_full_day: boat.price_low_season_full_day?.toString() || '',
-      price_low_season_week: boat.price_low_season_week?.toString() || '',
-      price_july_half_day: boat.price_july_half_day?.toString() || '',
-      price_july_full_day: boat.price_july_full_day?.toString() || '',
-      price_july_week: boat.price_july_week?.toString() || '',
-      price_august_half_day: boat.price_august_half_day?.toString() || '',
-      price_august_full_day: boat.price_august_full_day?.toString() || '',
-      price_august_week: boat.price_august_week?.toString() || '',
-      price_september_half_day: boat.price_september_half_day?.toString() || '',
-      price_september_full_day: boat.price_september_full_day?.toString() || '',
-      price_september_week: boat.price_september_week?.toString() || ''
+      has_rental: boat.has_rental ?? true,
+      has_charter: boat.has_charter ?? false,
+      // Prezzi NOLEGGIO
+      price_rental_apr_may_oct_half_day: boat.price_rental_apr_may_oct_half_day?.toString() || '',
+      price_rental_apr_may_oct_full_day: boat.price_rental_apr_may_oct_full_day?.toString() || '',
+      price_rental_apr_may_oct_week: boat.price_rental_apr_may_oct_week?.toString() || '',
+      price_rental_june_half_day: boat.price_rental_june_half_day?.toString() || '',
+      price_rental_june_full_day: boat.price_rental_june_full_day?.toString() || '',
+      price_rental_june_week: boat.price_rental_june_week?.toString() || '',
+      price_rental_july_sept_half_day: boat.price_rental_july_sept_half_day?.toString() || '',
+      price_rental_july_sept_full_day: boat.price_rental_july_sept_full_day?.toString() || '',
+      price_rental_july_sept_week: boat.price_rental_july_sept_week?.toString() || '',
+      price_rental_august_half_day: boat.price_rental_august_half_day?.toString() || '',
+      price_rental_august_full_day: boat.price_rental_august_full_day?.toString() || '',
+      price_rental_august_week: boat.price_rental_august_week?.toString() || '',
+      // Prezzi LOCAZIONE
+      price_charter_apr_may_oct_half_day: boat.price_charter_apr_may_oct_half_day?.toString() || '',
+      price_charter_apr_may_oct_full_day: boat.price_charter_apr_may_oct_full_day?.toString() || '',
+      price_charter_apr_may_oct_week: boat.price_charter_apr_may_oct_week?.toString() || '',
+      price_charter_june_half_day: boat.price_charter_june_half_day?.toString() || '',
+      price_charter_june_full_day: boat.price_charter_june_full_day?.toString() || '',
+      price_charter_june_week: boat.price_charter_june_week?.toString() || '',
+      price_charter_july_sept_half_day: boat.price_charter_july_sept_half_day?.toString() || '',
+      price_charter_july_sept_full_day: boat.price_charter_july_sept_full_day?.toString() || '',
+      price_charter_july_sept_week: boat.price_charter_july_sept_week?.toString() || '',
+      price_charter_august_half_day: boat.price_charter_august_half_day?.toString() || '',
+      price_charter_august_full_day: boat.price_charter_august_full_day?.toString() || '',
+      price_charter_august_week: boat.price_charter_august_week?.toString() || ''
     })
     setImagePreview(null)
     setDialogOpen(true)
@@ -204,19 +265,34 @@ export default function BoatsPage() {
           fuel_type: formData.fuel_type || null,
           year: formData.year ? parseInt(formData.year) : null
         },
-        // Prezzi stagionali
-        price_low_season_half_day: formData.price_low_season_half_day ? parseFloat(formData.price_low_season_half_day) : null,
-        price_low_season_full_day: formData.price_low_season_full_day ? parseFloat(formData.price_low_season_full_day) : null,
-        price_low_season_week: formData.price_low_season_week ? parseFloat(formData.price_low_season_week) : null,
-        price_july_half_day: formData.price_july_half_day ? parseFloat(formData.price_july_half_day) : null,
-        price_july_full_day: formData.price_july_full_day ? parseFloat(formData.price_july_full_day) : null,
-        price_july_week: formData.price_july_week ? parseFloat(formData.price_july_week) : null,
-        price_august_half_day: formData.price_august_half_day ? parseFloat(formData.price_august_half_day) : null,
-        price_august_full_day: formData.price_august_full_day ? parseFloat(formData.price_august_full_day) : null,
-        price_august_week: formData.price_august_week ? parseFloat(formData.price_august_week) : null,
-        price_september_half_day: formData.price_september_half_day ? parseFloat(formData.price_september_half_day) : null,
-        price_september_full_day: formData.price_september_full_day ? parseFloat(formData.price_september_full_day) : null,
-        price_september_week: formData.price_september_week ? parseFloat(formData.price_september_week) : null
+        has_rental: formData.has_rental,
+        has_charter: formData.has_charter,
+        // Prezzi NOLEGGIO
+        price_rental_apr_may_oct_half_day: formData.price_rental_apr_may_oct_half_day ? parseFloat(formData.price_rental_apr_may_oct_half_day) : null,
+        price_rental_apr_may_oct_full_day: formData.price_rental_apr_may_oct_full_day ? parseFloat(formData.price_rental_apr_may_oct_full_day) : null,
+        price_rental_apr_may_oct_week: formData.price_rental_apr_may_oct_week ? parseFloat(formData.price_rental_apr_may_oct_week) : null,
+        price_rental_june_half_day: formData.price_rental_june_half_day ? parseFloat(formData.price_rental_june_half_day) : null,
+        price_rental_june_full_day: formData.price_rental_june_full_day ? parseFloat(formData.price_rental_june_full_day) : null,
+        price_rental_june_week: formData.price_rental_june_week ? parseFloat(formData.price_rental_june_week) : null,
+        price_rental_july_sept_half_day: formData.price_rental_july_sept_half_day ? parseFloat(formData.price_rental_july_sept_half_day) : null,
+        price_rental_july_sept_full_day: formData.price_rental_july_sept_full_day ? parseFloat(formData.price_rental_july_sept_full_day) : null,
+        price_rental_july_sept_week: formData.price_rental_july_sept_week ? parseFloat(formData.price_rental_july_sept_week) : null,
+        price_rental_august_half_day: formData.price_rental_august_half_day ? parseFloat(formData.price_rental_august_half_day) : null,
+        price_rental_august_full_day: formData.price_rental_august_full_day ? parseFloat(formData.price_rental_august_full_day) : null,
+        price_rental_august_week: formData.price_rental_august_week ? parseFloat(formData.price_rental_august_week) : null,
+        // Prezzi LOCAZIONE
+        price_charter_apr_may_oct_half_day: formData.price_charter_apr_may_oct_half_day ? parseFloat(formData.price_charter_apr_may_oct_half_day) : null,
+        price_charter_apr_may_oct_full_day: formData.price_charter_apr_may_oct_full_day ? parseFloat(formData.price_charter_apr_may_oct_full_day) : null,
+        price_charter_apr_may_oct_week: formData.price_charter_apr_may_oct_week ? parseFloat(formData.price_charter_apr_may_oct_week) : null,
+        price_charter_june_half_day: formData.price_charter_june_half_day ? parseFloat(formData.price_charter_june_half_day) : null,
+        price_charter_june_full_day: formData.price_charter_june_full_day ? parseFloat(formData.price_charter_june_full_day) : null,
+        price_charter_june_week: formData.price_charter_june_week ? parseFloat(formData.price_charter_june_week) : null,
+        price_charter_july_sept_half_day: formData.price_charter_july_sept_half_day ? parseFloat(formData.price_charter_july_sept_half_day) : null,
+        price_charter_july_sept_full_day: formData.price_charter_july_sept_full_day ? parseFloat(formData.price_charter_july_sept_full_day) : null,
+        price_charter_july_sept_week: formData.price_charter_july_sept_week ? parseFloat(formData.price_charter_july_sept_week) : null,
+        price_charter_august_half_day: formData.price_charter_august_half_day ? parseFloat(formData.price_charter_august_half_day) : null,
+        price_charter_august_full_day: formData.price_charter_august_full_day ? parseFloat(formData.price_charter_august_full_day) : null,
+        price_charter_august_week: formData.price_charter_august_week ? parseFloat(formData.price_charter_august_week) : null
       }
 
       if (editingBoat) {
@@ -274,13 +350,13 @@ export default function BoatsPage() {
               Nuova Barca
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingBoat ? 'Modifica Barca' : 'Nuova Barca'}
               </DialogTitle>
               <DialogDescription>
-                Inserisci i dati dell'imbarcazione
+                Inserisci i dati dell'imbarcazione e i listini prezzi
               </DialogDescription>
             </DialogHeader>
 
@@ -417,162 +493,357 @@ export default function BoatsPage() {
                 />
               </div>
 
-              {/* LISTINO PREZZI STAGIONALI */}
-              <div className="col-span-2 border-t pt-6 mt-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <span>💰</span> Listino Prezzi Stagionali
-                </h3>
-                
-                {/* Bassa Stagione */}
-                <div className="mb-6 bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-3 text-blue-900">🌸 Bassa Stagione (Apr-Mag-Giu)</h4>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label>Mezza Giornata (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="500.00"
-                        value={formData.price_low_season_half_day}
-                        onChange={(e) => setFormData({ ...formData, price_low_season_half_day: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Giornata Intera (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="800.00"
-                        value={formData.price_low_season_full_day}
-                        onChange={(e) => setFormData({ ...formData, price_low_season_full_day: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Settimanale (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="4500.00"
-                        value={formData.price_low_season_week}
-                        onChange={(e) => setFormData({ ...formData, price_low_season_week: e.target.value })}
-                      />
-                    </div>
+              {/* FLAG SERVIZI */}
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold mb-4">Tipologie Servizio Disponibili</h3>
+                <div className="flex gap-6">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="has_rental"
+                      checked={formData.has_rental}
+                      onChange={(e) => setFormData({ ...formData, has_rental: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <Label htmlFor="has_rental" className="cursor-pointer flex items-center gap-2">
+                      <Ship className="h-4 w-4" />
+                      Disponibile per Noleggio
+                    </Label>
                   </div>
-                </div>
 
-                {/* Luglio */}
-                <div className="mb-6 bg-yellow-50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-3 text-yellow-900">☀️ Luglio</h4>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label>Mezza Giornata (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="700.00"
-                        value={formData.price_july_half_day}
-                        onChange={(e) => setFormData({ ...formData, price_july_half_day: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Giornata Intera (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="1200.00"
-                        value={formData.price_july_full_day}
-                        onChange={(e) => setFormData({ ...formData, price_july_full_day: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Settimanale (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="7000.00"
-                        value={formData.price_july_week}
-                        onChange={(e) => setFormData({ ...formData, price_july_week: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Agosto */}
-                <div className="mb-6 bg-orange-50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-3 text-orange-900">🔥 Agosto</h4>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label>Mezza Giornata (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="800.00"
-                        value={formData.price_august_half_day}
-                        onChange={(e) => setFormData({ ...formData, price_august_half_day: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Giornata Intera (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="1400.00"
-                        value={formData.price_august_full_day}
-                        onChange={(e) => setFormData({ ...formData, price_august_full_day: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Settimanale (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="8000.00"
-                        value={formData.price_august_week}
-                        onChange={(e) => setFormData({ ...formData, price_august_week: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Settembre */}
-                <div className="mb-6 bg-green-50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-3 text-green-900">🍂 Settembre</h4>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label>Mezza Giornata (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="600.00"
-                        value={formData.price_september_half_day}
-                        onChange={(e) => setFormData({ ...formData, price_september_half_day: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Giornata Intera (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="1000.00"
-                        value={formData.price_september_full_day}
-                        onChange={(e) => setFormData({ ...formData, price_september_full_day: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Settimanale (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="5500.00"
-                        value={formData.price_september_week}
-                        onChange={(e) => setFormData({ ...formData, price_september_week: e.target.value })}
-                      />
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="has_charter"
+                      checked={formData.has_charter}
+                      onChange={(e) => setFormData({ ...formData, has_charter: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <Label htmlFor="has_charter" className="cursor-pointer flex items-center gap-2">
+                      <Anchor className="h-4 w-4" />
+                      Disponibile per Locazione
+                    </Label>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              {/* LISTINO NOLEGGIO */}
+              {formData.has_rental && (
+                <div className="border-t pt-6 mt-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Ship className="h-5 w-5" />
+                    Listino Prezzi NOLEGGIO
+                  </h3>
+                  
+                  {/* Apr-Mag-Ott */}
+                  <div className="mb-6 bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-3 text-blue-900">🌸 Apr / Mag / Ott</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Mezza Giornata (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="500.00"
+                          value={formData.price_rental_apr_may_oct_half_day}
+                          onChange={(e) => setFormData({ ...formData, price_rental_apr_may_oct_half_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Giornata Intera (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="800.00"
+                          value={formData.price_rental_apr_may_oct_full_day}
+                          onChange={(e) => setFormData({ ...formData, price_rental_apr_may_oct_full_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Settimanale (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="4500.00"
+                          value={formData.price_rental_apr_may_oct_week}
+                          onChange={(e) => setFormData({ ...formData, price_rental_apr_may_oct_week: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Giugno */}
+                  <div className="mb-6 bg-yellow-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-3 text-yellow-900">☀️ Giugno</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Mezza Giornata (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="600.00"
+                          value={formData.price_rental_june_half_day}
+                          onChange={(e) => setFormData({ ...formData, price_rental_june_half_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Giornata Intera (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="1000.00"
+                          value={formData.price_rental_june_full_day}
+                          onChange={(e) => setFormData({ ...formData, price_rental_june_full_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Settimanale (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="6000.00"
+                          value={formData.price_rental_june_week}
+                          onChange={(e) => setFormData({ ...formData, price_rental_june_week: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Luglio-Settembre */}
+                  <div className="mb-6 bg-cyan-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-3 text-cyan-900">🌊 Luglio / Settembre</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Mezza Giornata (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="700.00"
+                          value={formData.price_rental_july_sept_half_day}
+                          onChange={(e) => setFormData({ ...formData, price_rental_july_sept_half_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Giornata Intera (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="1200.00"
+                          value={formData.price_rental_july_sept_full_day}
+                          onChange={(e) => setFormData({ ...formData, price_rental_july_sept_full_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Settimanale (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="7000.00"
+                          value={formData.price_rental_july_sept_week}
+                          onChange={(e) => setFormData({ ...formData, price_rental_july_sept_week: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Agosto */}
+                  <div className="mb-6 bg-orange-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-3 text-orange-900">🔥 Agosto</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Mezza Giornata (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="800.00"
+                          value={formData.price_rental_august_half_day}
+                          onChange={(e) => setFormData({ ...formData, price_rental_august_half_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Giornata Intera (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="1400.00"
+                          value={formData.price_rental_august_full_day}
+                          onChange={(e) => setFormData({ ...formData, price_rental_august_full_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Settimanale (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="8000.00"
+                          value={formData.price_rental_august_week}
+                          onChange={(e) => setFormData({ ...formData, price_rental_august_week: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* LISTINO LOCAZIONE */}
+              {formData.has_charter && (
+                <div className="border-t pt-6 mt-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Anchor className="h-5 w-5" />
+                    Listino Prezzi LOCAZIONE
+                  </h3>
+                  
+                  {/* Apr-Mag-Ott */}
+                  <div className="mb-6 bg-purple-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-3 text-purple-900">🌸 Apr / Mag / Ott</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Mezza Giornata (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="600.00"
+                          value={formData.price_charter_apr_may_oct_half_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_apr_may_oct_half_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Giornata Intera (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="1000.00"
+                          value={formData.price_charter_apr_may_oct_full_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_apr_may_oct_full_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Settimanale (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="5500.00"
+                          value={formData.price_charter_apr_may_oct_week}
+                          onChange={(e) => setFormData({ ...formData, price_charter_apr_may_oct_week: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Giugno */}
+                  <div className="mb-6 bg-pink-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-3 text-pink-900">☀️ Giugno</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Mezza Giornata (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="700.00"
+                          value={formData.price_charter_june_half_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_june_half_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Giornata Intera (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="1200.00"
+                          value={formData.price_charter_june_full_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_june_full_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Settimanale (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="7000.00"
+                          value={formData.price_charter_june_week}
+                          onChange={(e) => setFormData({ ...formData, price_charter_june_week: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Luglio-Settembre */}
+                  <div className="mb-6 bg-teal-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-3 text-teal-900">🌊 Luglio / Settembre</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Mezza Giornata (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="900.00"
+                          value={formData.price_charter_july_sept_half_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_july_sept_half_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Giornata Intera (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="1500.00"
+                          value={formData.price_charter_july_sept_full_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_july_sept_full_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Settimanale (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="9000.00"
+                          value={formData.price_charter_july_sept_week}
+                          onChange={(e) => setFormData({ ...formData, price_charter_july_sept_week: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Agosto */}
+                  <div className="mb-6 bg-red-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-3 text-red-900">🔥 Agosto</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Mezza Giornata (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="1000.00"
+                          value={formData.price_charter_august_half_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_august_half_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Giornata Intera (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="1800.00"
+                          value={formData.price_charter_august_full_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_august_full_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Settimanale (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="10000.00"
+                          value={formData.price_charter_august_week}
+                          onChange={(e) => setFormData({ ...formData, price_charter_august_week: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-4 border-t">
                 <input
                   type="checkbox"
                   id="is_active"
@@ -613,8 +884,7 @@ export default function BoatsPage() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Capacità</TableHead>
-                <TableHead>Lunghezza</TableHead>
-                <TableHead>Potenza</TableHead>
+                <TableHead>Servizi</TableHead>
                 <TableHead>Stato</TableHead>
                 <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
@@ -622,7 +892,7 @@ export default function BoatsPage() {
             <TableBody>
               {boats.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     Nessuna barca presente. Clicca "Nuova Barca" per iniziare.
                   </TableCell>
                 </TableRow>
@@ -645,8 +915,22 @@ export default function BoatsPage() {
                     <TableCell className="font-medium">{boat.name}</TableCell>
                     <TableCell>{boat.boat_type}</TableCell>
                     <TableCell>{boat.max_passengers ? `${boat.max_passengers} pax` : '-'}</TableCell>
-                    <TableCell>{boat.length_meters ? `${boat.length_meters}m` : '-'}</TableCell>
-                    <TableCell>{boat.technical_specs?.engine_power ? `${boat.technical_specs.engine_power} HP` : '-'}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {boat.has_rental && (
+                          <Badge variant="default" className="text-xs">
+                            <Ship className="h-3 w-3 mr-1" />
+                            Noleggio
+                          </Badge>
+                        )}
+                        {boat.has_charter && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Anchor className="h-3 w-3 mr-1" />
+                            Locazione
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={boat.is_active ? 'default' : 'secondary'}>
                         {boat.is_active ? 'Attiva' : 'Inattiva'}

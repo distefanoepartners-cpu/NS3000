@@ -29,18 +29,34 @@ type BookingOption = {
   boats: Array<{ 
     id: string
     name: string
-    price_low_season_half_day: number | null
-    price_low_season_full_day: number | null
-    price_low_season_week: number | null
-    price_july_half_day: number | null
-    price_july_full_day: number | null
-    price_july_week: number | null
-    price_august_half_day: number | null
-    price_august_full_day: number | null
-    price_august_week: number | null
-    price_september_half_day: number | null
-    price_september_full_day: number | null
-    price_september_week: number | null
+    has_rental: boolean
+    has_charter: boolean
+    // Prezzi NOLEGGIO
+    price_rental_apr_may_oct_half_day: number | null
+    price_rental_apr_may_oct_full_day: number | null
+    price_rental_apr_may_oct_week: number | null
+    price_rental_june_half_day: number | null
+    price_rental_june_full_day: number | null
+    price_rental_june_week: number | null
+    price_rental_july_sept_half_day: number | null
+    price_rental_july_sept_full_day: number | null
+    price_rental_july_sept_week: number | null
+    price_rental_august_half_day: number | null
+    price_rental_august_full_day: number | null
+    price_rental_august_week: number | null
+    // Prezzi LOCAZIONE
+    price_charter_apr_may_oct_half_day: number | null
+    price_charter_apr_may_oct_full_day: number | null
+    price_charter_apr_may_oct_week: number | null
+    price_charter_june_half_day: number | null
+    price_charter_june_full_day: number | null
+    price_charter_june_week: number | null
+    price_charter_july_sept_half_day: number | null
+    price_charter_july_sept_full_day: number | null
+    price_charter_july_sept_week: number | null
+    price_charter_august_half_day: number | null
+    price_charter_august_full_day: number | null
+    price_charter_august_week: number | null
   }>
   services: Array<{ 
     id: string
@@ -141,51 +157,59 @@ export default function BookingsPage() {
       return service.price_per_person * passengers
     }
 
-    // NOLEGGIO BARCA - Prezzo stagionale
+    // TAXI BOAT - Nessun calcolo automatico (prezzo manuale)
+    if (service.name.toLowerCase().includes('taxi')) {
+      return null
+    }
+
+    // NOLEGGIO / LOCAZIONE - Prezzo stagionale
     if (!boatId) return null
     const boat = options.boats.find(b => b.id === boatId)
     const timeSlot = options.timeSlots.find(t => t.id === timeSlotId)
     if (!boat || !timeSlot) return null
 
+    // Determina se è NOLEGGIO o LOCAZIONE
+    const isRental = service.name.toLowerCase().includes('noleggio')
+    const isCharter = service.name.toLowerCase().includes('locazione')
+
+    // Verifica che la barca supporti il servizio
+    if (isRental && !boat.has_rental) return null
+    if (isCharter && !boat.has_charter) return null
+
     const bookingDate = new Date(date)
-    const month = bookingDate.getMonth() + 1
+    const month = bookingDate.getMonth() + 1 // 1-12
 
     let price = null
+    const prefix = isRental ? 'rental' : 'charter'
 
     // Determina stagione
-    if (month >= 4 && month <= 6) {
-      if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
-        price = boat.price_low_season_half_day
-      } else if (timeSlot.name === 'Full Day') {
-        price = boat.price_low_season_full_day
-      } else if (timeSlot.name === 'Week') {
-        price = boat.price_low_season_week
-      }
-    } else if (month === 7) {
-      if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
-        price = boat.price_july_half_day
-      } else if (timeSlot.name === 'Full Day') {
-        price = boat.price_july_full_day
-      } else if (timeSlot.name === 'Week') {
-        price = boat.price_july_week
-      }
+    let season = ''
+    if (month === 4 || month === 5 || month === 10) {
+      season = 'apr_may_oct'
+    } else if (month === 6) {
+      season = 'june'
+    } else if (month === 7 || month === 9) {
+      season = 'july_sept'
     } else if (month === 8) {
-      if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
-        price = boat.price_august_half_day
-      } else if (timeSlot.name === 'Full Day') {
-        price = boat.price_august_full_day
-      } else if (timeSlot.name === 'Week') {
-        price = boat.price_august_week
-      }
-    } else if (month === 9) {
-      if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
-        price = boat.price_september_half_day
-      } else if (timeSlot.name === 'Full Day') {
-        price = boat.price_september_full_day
-      } else if (timeSlot.name === 'Week') {
-        price = boat.price_september_week
-      }
+      season = 'august'
+    } else {
+      // Mesi fuori stagione (Gen, Feb, Mar, Nov, Dic)
+      // Usa prezzi Apr-Mag-Ott come default
+      season = 'apr_may_oct'
     }
+
+    let duration = ''
+    if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
+      duration = 'half_day'
+    } else if (timeSlot.name === 'Full Day') {
+      duration = 'full_day'
+    } else if (timeSlot.name === 'Week') {
+      duration = 'week'
+    }
+
+    // Costruisci nome campo: price_rental_june_half_day
+    const fieldName = `price_${prefix}_${season}_${duration}` as keyof typeof boat
+    price = boat[fieldName] as number | null
 
     return price
   }
