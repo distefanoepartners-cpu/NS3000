@@ -7,23 +7,54 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { data, error } = await supabaseAdmin
+    // Prima ottieni il booking base
+    const { data: booking, error: bookingError } = await supabaseAdmin
       .from('bookings')
-      .select(`
-        *,
-        customer:customers(id, first_name, last_name, email, phone),
-        boat:boats(id, name, boat_type),
-        service:services(id, name, type),
-        supplier:suppliers(id, name),
-        port:ports(id, name, code),
-        time_slot:time_slots(id, name, start_time, end_time),
-        booking_status:booking_statuses(id, name, code, color_code)
-      `)
+      .select('*')
       .eq('id', params.id)
       .single()
 
-    if (error) throw error
-    return NextResponse.json(data)
+    if (bookingError) throw bookingError
+
+    // Poi carica le relazioni separatamente (solo se non sono null)
+    const relations: any = {}
+
+    if (booking.customer_id) {
+      const { data } = await supabaseAdmin.from('customers').select('id, first_name, last_name, email, phone').eq('id', booking.customer_id).single()
+      relations.customer = data
+    }
+
+    if (booking.boat_id) {
+      const { data } = await supabaseAdmin.from('boats').select('id, name, boat_type').eq('id', booking.boat_id).single()
+      relations.boat = data
+    }
+
+    if (booking.service_id) {
+      const { data } = await supabaseAdmin.from('services').select('id, name, type').eq('id', booking.service_id).single()
+      relations.service = data
+    }
+
+    if (booking.supplier_id) {
+      const { data } = await supabaseAdmin.from('suppliers').select('id, name').eq('id', booking.supplier_id).single()
+      relations.supplier = data
+    }
+
+    if (booking.port_id) {
+      const { data } = await supabaseAdmin.from('ports').select('id, name, code').eq('id', booking.port_id).single()
+      relations.port = data
+    }
+
+    if (booking.time_slot_id) {
+      const { data } = await supabaseAdmin.from('time_slots').select('id, name, start_time, end_time').eq('id', booking.time_slot_id).single()
+      relations.time_slot = data
+    }
+
+    if (booking.booking_status_id) {
+      const { data } = await supabaseAdmin.from('booking_statuses').select('id, name, code, color_code').eq('id', booking.booking_status_id).single()
+      relations.booking_status = data
+    }
+
+    return NextResponse.json({ ...booking, ...relations })
   } catch (error: any) {
     console.error('Errore caricamento prenotazione:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
