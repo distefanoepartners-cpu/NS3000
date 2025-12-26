@@ -105,6 +105,7 @@ export default function BookingsPage() {
     customer_id: '',
     boat_id: '',
     service_id: '',
+    service_type: 'rental', // rental o charter
     supplier_id: '',
     port_id: '',
     time_slot_id: '',
@@ -144,7 +145,8 @@ export default function BookingsPage() {
     boatId: string, 
     date: string, 
     timeSlotId: string,
-    numPassengers: string
+    numPassengers: string,
+    serviceType: string
   ) => {
     if (!serviceId || !date || !timeSlotId || !options) return null
 
@@ -168,19 +170,17 @@ export default function BookingsPage() {
     const timeSlot = options.timeSlots.find(t => t.id === timeSlotId)
     if (!boat || !timeSlot) return null
 
-    // Determina se è NOLEGGIO o LOCAZIONE
-    const isRental = service.name.toLowerCase().includes('noleggio')
-    const isCharter = service.name.toLowerCase().includes('locazione')
+    // Usa il service_type dal form (rental o charter)
+    const prefix = serviceType === 'charter' ? 'charter' : 'rental'
 
     // Verifica che la barca supporti il servizio
-    if (isRental && !boat.has_rental) return null
-    if (isCharter && !boat.has_charter) return null
+    if (prefix === 'rental' && !boat.has_rental) return null
+    if (prefix === 'charter' && !boat.has_charter) return null
 
     const bookingDate = new Date(date)
     const month = bookingDate.getMonth() + 1 // 1-12
 
     let price = null
-    const prefix = isRental ? 'rental' : 'charter'
 
     // Determina stagione
     let season = ''
@@ -214,14 +214,15 @@ export default function BookingsPage() {
     return price
   }
 
-  // Aggiorna prezzi quando cambiano servizio/barca/data/fascia/passeggeri
+  // Aggiorna prezzi quando cambiano servizio/barca/data/fascia/passeggeri/tipo
   useEffect(() => {
     const price = calculatePrice(
       formData.service_id,
       formData.boat_id,
       formData.booking_date,
       formData.time_slot_id,
-      formData.num_passengers
+      formData.num_passengers,
+      formData.service_type
     )
     if (price !== null && price !== undefined) {
       setFormData(prev => ({
@@ -231,13 +232,17 @@ export default function BookingsPage() {
         balance_amount: (price - parseFloat(prev.deposit_amount || '0')).toFixed(2)
       }))
     }
-  }, [formData.service_id, formData.boat_id, formData.booking_date, formData.time_slot_id, formData.num_passengers])
+  }, [formData.service_id, formData.boat_id, formData.booking_date, formData.time_slot_id, formData.num_passengers, formData.service_type])
 
   const loadBookings = async () => {
     try {
       const response = await fetch('/api/bookings')
       const data = await response.json()
-      setBookings(data)
+      // Ordina per data prenotazione (più recente prima)
+      const sortedData = data.sort((a: Booking, b: Booking) => {
+        return new Date(b.booking_date).getTime() - new Date(a.booking_date).getTime()
+      })
+      setBookings(sortedData)
     } catch (error) {
       console.error('Errore caricamento prenotazioni:', error)
     } finally {
@@ -261,6 +266,7 @@ export default function BookingsPage() {
       customer_id: '',
       boat_id: '',
       service_id: '',
+      service_type: 'rental',
       supplier_id: '',
       port_id: '',
       time_slot_id: '',
@@ -526,18 +532,37 @@ export default function BookingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="boat_id">Barca *</Label>
-                    <select
-                      id="boat_id"
-                      value={formData.boat_id}
-                      onChange={(e) => setFormData({ ...formData, boat_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Seleziona barca...</option>
-                      {options.boats.map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
+                    <Label>Tipologia Servizio *</Label>
+                    <div className="flex gap-4 pt-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          id="service_type_rental"
+                          name="service_type"
+                          value="rental"
+                          checked={formData.service_type === 'rental'}
+                          onChange={(e) => setFormData({ ...formData, service_type: e.target.value, boat_id: '' })}
+                          className="w-4 h-4"
+                        />
+                        <Label htmlFor="service_type_rental" className="cursor-pointer font-normal">
+                          Noleggio
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          id="service_type_charter"
+                          name="service_type"
+                          value="charter"
+                          checked={formData.service_type === 'charter'}
+                          onChange={(e) => setFormData({ ...formData, service_type: e.target.value, boat_id: '' })}
+                          className="w-4 h-4"
+                        />
+                        <Label htmlFor="service_type_charter" className="cursor-pointer font-normal">
+                          Locazione
+                        </Label>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -550,6 +575,28 @@ export default function BookingsPage() {
                       placeholder="Es. 8"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="boat_id">Barca *</Label>
+                  <select
+                    id="boat_id"
+                    value={formData.boat_id}
+                    onChange={(e) => setFormData({ ...formData, boat_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="">Seleziona barca...</option>
+                    {options.boats
+                      .filter(b => formData.service_type === 'rental' ? b.has_rental : b.has_charter)
+                      .map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                  </select>
+                  {formData.service_type && options.boats.filter(b => formData.service_type === 'rental' ? b.has_rental : b.has_charter).length === 0 && (
+                    <p className="text-sm text-orange-600">
+                      Nessuna barca disponibile per {formData.service_type === 'rental' ? 'Noleggio' : 'Locazione'}
+                    </p>
+                  )}
                 </div>
               </div>
 
