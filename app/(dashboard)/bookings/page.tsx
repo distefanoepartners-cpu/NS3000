@@ -311,6 +311,7 @@ export default function BookingsPage() {
       customer_id: booking.customer?.id || '',
       boat_id: booking.boat?.id || '',
       service_id: booking.service?.id || '',
+      service_type: (booking as any).service_type || 'rental', // Carica tipo servizio
       supplier_id: booking.supplier?.id || '',
       port_id: booking.port?.id || '',
       time_slot_id: booking.time_slot?.id || '',
@@ -372,6 +373,7 @@ export default function BookingsPage() {
         customer_id: formData.customer_id,
         boat_id: formData.boat_id,
         service_id: formData.service_id,
+        service_type: formData.service_type, // INCLUDI service_type
         supplier_id: formData.supplier_id || null,
         port_id: formData.port_id,
         time_slot_id: formData.time_slot_id,
@@ -515,7 +517,9 @@ export default function BookingsPage() {
               {/* Sezione Servizio */}
               <div className="space-y-4 pt-4 border-t">
                 <h3 className="font-semibold">Servizio e Imbarcazione</h3>
-                <div className="grid grid-cols-3 gap-4">
+                
+                {/* Prima riga: Servizio e N° Passeggeri */}
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="service_id">Servizio *</Label>
                     <select
@@ -532,40 +536,6 @@ export default function BookingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Tipologia Servizio *</Label>
-                    <div className="flex gap-4 pt-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          id="service_type_rental"
-                          name="service_type"
-                          value="rental"
-                          checked={formData.service_type === 'rental'}
-                          onChange={(e) => setFormData({ ...formData, service_type: e.target.value, boat_id: '' })}
-                          className="w-4 h-4"
-                        />
-                        <Label htmlFor="service_type_rental" className="cursor-pointer font-normal">
-                          Noleggio
-                        </Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          id="service_type_charter"
-                          name="service_type"
-                          value="charter"
-                          checked={formData.service_type === 'charter'}
-                          onChange={(e) => setFormData({ ...formData, service_type: e.target.value, boat_id: '' })}
-                          className="w-4 h-4"
-                        />
-                        <Label htmlFor="service_type_charter" className="cursor-pointer font-normal">
-                          Locazione
-                        </Label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="num_passengers">N° Passeggeri</Label>
                     <Input
                       id="num_passengers"
@@ -577,6 +547,42 @@ export default function BookingsPage() {
                   </div>
                 </div>
 
+                {/* Seconda riga: Radio Tipologia */}
+                <div className="space-y-2">
+                  <Label>Tipologia Servizio *</Label>
+                  <div className="flex gap-6">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        id="service_type_rental"
+                        name="service_type"
+                        value="rental"
+                        checked={formData.service_type === 'rental'}
+                        onChange={(e) => setFormData({ ...formData, service_type: e.target.value, boat_id: '' })}
+                        className="w-4 h-4"
+                      />
+                      <Label htmlFor="service_type_rental" className="cursor-pointer font-normal">
+                        Noleggio
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        id="service_type_charter"
+                        name="service_type"
+                        value="charter"
+                        checked={formData.service_type === 'charter'}
+                        onChange={(e) => setFormData({ ...formData, service_type: e.target.value, boat_id: '' })}
+                        className="w-4 h-4"
+                      />
+                      <Label htmlFor="service_type_charter" className="cursor-pointer font-normal">
+                        Locazione
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Terza riga: Dropdown Barca */}
                 <div className="space-y-2">
                   <Label htmlFor="boat_id">Barca *</Label>
                   <select
