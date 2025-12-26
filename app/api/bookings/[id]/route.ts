@@ -37,13 +37,16 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
+    
+    // DEBUG: Log del payload ricevuto
+    console.log('PUT /api/bookings/[id] - Body received:', JSON.stringify(body, null, 2))
 
     const payload = {
       customer_id: body.customer_id,
       boat_id: body.boat_id,
       service_id: body.service_id,
       service_type: body.service_type || 'rental',
-      supplier_id: body.supplier_id || null,
+      supplier_id: body.supplier_id && body.supplier_id !== '' ? body.supplier_id : null,
       port_id: body.port_id,
       time_slot_id: body.time_slot_id,
       custom_time: body.custom_time || null,
@@ -59,6 +62,9 @@ export async function PUT(
       total_paid: body.total_paid || 0,
       notes: body.notes || null
     }
+    
+    // DEBUG: Log del payload processato
+    console.log('PUT /api/bookings/[id] - Payload to DB:', JSON.stringify(payload, null, 2))
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
