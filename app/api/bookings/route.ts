@@ -14,12 +14,12 @@ export async function GET(request: Request) {
       .from('bookings')
       .select(`
         *,
-        customer:customer_id(id, first_name, last_name, email, phone),
-        boat:boat_id(id, name, boat_type, rental_price_high_season, rental_price_mid_season, rental_price_low_season, charter_price_high_season, charter_price_mid_season, charter_price_low_season),
-        service:service_id(id, name, type),
-        time_slot:time_slot_id(id, name, start_time, end_time),
-        booking_status:booking_status_id(id, name, code),
-        payment_method:payment_method_id(id, name, code)
+        customers!customer_id(id, first_name, last_name, email, phone),
+        boats!boat_id(id, name, boat_type, rental_price_high_season, rental_price_mid_season, rental_price_low_season, charter_price_high_season, charter_price_mid_season, charter_price_low_season),
+        services!service_id(id, name, type),
+        time_slots!time_slot_id(id, name, start_time, end_time),
+        booking_statuses!booking_status_id(id, name, code),
+        payment_methods!payment_method_id(id, name, code)
       `)
       .order('booking_date', { ascending: false })
 
@@ -31,19 +31,25 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('[Bookings API] Supabase error:', error)
-      // Ritorna array vuoto invece di errore 500
       return NextResponse.json([])
     }
 
     console.log('[Bookings API] Found bookings:', data?.length || 0)
 
-    // Assicurati che sia sempre un array
-    const bookings = Array.isArray(data) ? data : []
+    // Rinomina i campi per compatibilità con il frontend
+    const bookings = (data || []).map((booking: any) => ({
+      ...booking,
+      customer: booking.customers,
+      boat: booking.boats,
+      service: booking.services,
+      time_slot: booking.time_slots,
+      booking_status: booking.booking_statuses,
+      payment_method: booking.payment_methods
+    }))
     
     return NextResponse.json(bookings)
   } catch (error: any) {
     console.error('[Bookings API] Unexpected error:', error)
-    // Ritorna array vuoto in caso di errore
     return NextResponse.json([])
   }
 }
@@ -54,7 +60,6 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('[Bookings API] Creating booking with data:', body)
 
-    // Genera booking number
     const bookingNumber = `BK-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
 
     const insertData: any = {
@@ -72,7 +77,6 @@ export async function POST(request: Request) {
       notes: body.notes || null
     }
 
-    // Campi opzionali - aggiungi solo se presenti e non vuoti
     if (body.time_slot_id && body.time_slot_id !== '') {
       insertData.time_slot_id = body.time_slot_id
     }
@@ -93,12 +97,12 @@ export async function POST(request: Request) {
       .insert(insertData)
       .select(`
         *,
-        customer:customers(id, first_name, last_name, email, phone),
-        boat:boats(id, name, boat_type),
-        service:services(id, name, type),
-        time_slot:time_slots(id, name, start_time, end_time),
-        booking_status:booking_statuses(id, name, code),
-        payment_method:payment_methods(id, name, code)
+        customers!customer_id(id, first_name, last_name, email, phone),
+        boats!boat_id(id, name, boat_type),
+        services!service_id(id, name, type),
+        time_slots!time_slot_id(id, name, start_time, end_time),
+        booking_statuses!booking_status_id(id, name, code),
+        payment_methods!payment_method_id(id, name, code)
       `)
       .single()
 
@@ -109,7 +113,18 @@ export async function POST(request: Request) {
 
     console.log('[Bookings API] Booking created:', data.id)
 
-    return NextResponse.json(data)
+    // Rinomina campi
+    const booking = {
+      ...data,
+      customer: data.customers,
+      boat: data.boats,
+      service: data.services,
+      time_slot: data.time_slots,
+      booking_status: data.booking_statuses,
+      payment_method: data.payment_methods
+    }
+
+    return NextResponse.json(booking)
   } catch (error: any) {
     console.error('[Bookings API] Error creating booking:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
