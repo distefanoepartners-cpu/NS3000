@@ -8,6 +8,8 @@ export async function GET(request: Request) {
     const start = searchParams.get('start')
     const end = searchParams.get('end')
 
+    console.log('[Bookings API] Fetching bookings with params:', { start, end })
+
     let query = supabaseAdmin
       .from('bookings')
       .select(`
@@ -27,12 +29,22 @@ export async function GET(request: Request) {
 
     const { data, error } = await query
 
-    if (error) throw error
+    if (error) {
+      console.error('[Bookings API] Supabase error:', error)
+      // Ritorna array vuoto invece di errore 500
+      return NextResponse.json([])
+    }
 
-    return NextResponse.json(data || [])
+    console.log('[Bookings API] Found bookings:', data?.length || 0)
+
+    // Assicurati che sia sempre un array
+    const bookings = Array.isArray(data) ? data : []
+    
+    return NextResponse.json(bookings)
   } catch (error: any) {
-    console.error('Error fetching bookings:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[Bookings API] Unexpected error:', error)
+    // Ritorna array vuoto in caso di errore
+    return NextResponse.json([])
   }
 }
 
@@ -40,6 +52,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    console.log('[Bookings API] Creating booking with data:', body)
 
     // Genera booking number
     const bookingNumber = `BK-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
@@ -59,11 +72,21 @@ export async function POST(request: Request) {
       notes: body.notes || null
     }
 
-    // Campi opzionali - aggiungi solo se presenti
-    if (body.time_slot_id) insertData.time_slot_id = body.time_slot_id
-    if (body.booking_status_id) insertData.booking_status_id = body.booking_status_id
-    if (body.payment_method_id) insertData.payment_method_id = body.payment_method_id
-    if (body.security_deposit) insertData.security_deposit = body.security_deposit
+    // Campi opzionali - aggiungi solo se presenti e non vuoti
+    if (body.time_slot_id && body.time_slot_id !== '') {
+      insertData.time_slot_id = body.time_slot_id
+    }
+    if (body.booking_status_id && body.booking_status_id !== '') {
+      insertData.booking_status_id = body.booking_status_id
+    }
+    if (body.payment_method_id && body.payment_method_id !== '') {
+      insertData.payment_method_id = body.payment_method_id
+    }
+    if (body.security_deposit) {
+      insertData.security_deposit = body.security_deposit
+    }
+
+    console.log('[Bookings API] Insert data:', insertData)
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
@@ -80,13 +103,15 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
-      console.error('Supabase insert error:', error)
+      console.error('[Bookings API] Insert error:', error)
       throw error
     }
 
+    console.log('[Bookings API] Booking created:', data.id)
+
     return NextResponse.json(data)
   } catch (error: any) {
-    console.error('Error creating booking:', error)
+    console.error('[Bookings API] Error creating booking:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
