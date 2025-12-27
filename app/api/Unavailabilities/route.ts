@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     // Filtro per range date se fornito
     if (start && end) {
       query = query
-        .or(`date_from.lte.${end},date_to.gte.${start}`)
+      .or(`date_from.lte.${end},date_to.gte.${start}`)
     }
 
     const { data, error } = await query
