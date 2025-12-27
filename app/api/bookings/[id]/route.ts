@@ -83,31 +83,6 @@ export async function PUT(
       custom_time: body.custom_time || null,
       booking_status_id: body.booking_status_id,
       booking_date: body.booking_date,
-      num_passengers: body.num_passengers || null,
-      base_price: body.base_price || 0,
-      final_price: body.final_price || 0,
-      deposit_amount: body.deposit_amount || 0,
-      balance_amount: body.balance_amount || 0,
-      security_deposit: body.security_deposit || 0,
-      payment_method_id: body.payment_method_id && body.payment_method_id !== '' ? body.payment_method_id : null,
-      total_paid: body.total_paid || 0,
-      notes: body.notes || null
-    }
-    
-    // DEBUG: Log del payload processato
-    
-
-    const payload = {
-      customer_id: body.customer_id,
-      boat_id: body.boat_id,
-      service_id: body.service_id,
-      service_type: body.service_type || 'rental',
-      supplier_id: body.supplier_id && body.supplier_id !== '' ? body.supplier_id : null,
-      port_id: body.port_id,
-      time_slot_id: body.time_slot_id,
-      custom_time: body.custom_time || null,
-      booking_status_id: body.booking_status_id,
-      booking_date: body.booking_date,
       num_passengers: body.num_passengers ? parseInt(body.num_passengers) : null,
       base_price: body.base_price ? parseFloat(body.base_price) : 0,
       final_price: body.final_price ? parseFloat(body.final_price) : 0,
@@ -118,6 +93,9 @@ export async function PUT(
       total_paid: body.total_paid ? parseFloat(body.total_paid) : 0,
       notes: body.notes || null
     }
+    
+    // DEBUG: Log del payload processato
+    console.log('PUT /api/bookings/[id] - Payload to DB:', JSON.stringify(payload, null, 2))
 
     const { error } = await supabaseAdmin
       .from('bookings')
