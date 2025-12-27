@@ -98,7 +98,7 @@ export async function PUT(
     console.log('PUT /api/bookings/[id] - Payload to DB:', JSON.stringify(payload, null, 2))
 
     // Usa RPC invece del client Supabase per evitare bug con UUID
-    const { error } = await supabaseAdmin.rpc('update_booking', {
+    const { error } = await supabaseAdmin.rpc('update_booking_v2', {
       p_id: params.id,
       p_customer_id: payload.customer_id,
       p_boat_id: payload.boat_id,
