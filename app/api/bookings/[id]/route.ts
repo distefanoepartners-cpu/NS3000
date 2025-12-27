@@ -99,26 +99,26 @@ export async function PUT(
 
     // Usa RPC invece del client Supabase per evitare bug con UUID
     const { error } = await supabaseAdmin.rpc('update_booking_v2', {
-      p_id: params.id,
-      p_customer_id: payload.customer_id,
+      p_balance_amount: payload.balance_amount,
+      p_base_price: payload.base_price,
       p_boat_id: payload.boat_id,
+      p_booking_date: payload.booking_date,
+      p_booking_status_id: payload.booking_status_id,
+      p_custom_time: payload.custom_time,
+      p_customer_id: payload.customer_id,
+      p_deposit_amount: payload.deposit_amount,
+      p_final_price: payload.final_price,
+      p_id: params.id,
+      p_notes: payload.notes,
+      p_num_passengers: payload.num_passengers,
+      p_payment_method_id: payload.payment_method_id,
+      p_port_id: payload.port_id,
+      p_security_deposit: payload.security_deposit,
       p_service_id: payload.service_id,
       p_service_type: payload.service_type,
       p_supplier_id: payload.supplier_id,
-      p_port_id: payload.port_id,
       p_time_slot_id: payload.time_slot_id,
-      p_custom_time: payload.custom_time,
-      p_booking_status_id: payload.booking_status_id,
-      p_booking_date: payload.booking_date,
-      p_num_passengers: payload.num_passengers,
-      p_base_price: payload.base_price,
-      p_final_price: payload.final_price,
-      p_deposit_amount: payload.deposit_amount,
-      p_balance_amount: payload.balance_amount,
-      p_security_deposit: payload.security_deposit,
-      p_payment_method_id: payload.payment_method_id,
-      p_total_paid: payload.total_paid,
-      p_notes: payload.notes
+      p_total_paid: payload.total_paid
     })
 
     if (error) {
