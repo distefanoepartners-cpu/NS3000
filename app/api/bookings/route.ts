@@ -10,44 +10,81 @@ export async function GET(request: Request) {
 
     console.log('[Bookings API] Fetching bookings with params:', { start, end })
 
+    // Query semplice senza JOIN
     let query = supabaseAdmin
       .from('bookings')
-      .select(`
-        *,
-        customers!customer_id(id, first_name, last_name, email, phone),
-        boats!boat_id(id, name, boat_type, rental_price_high_season, rental_price_mid_season, rental_price_low_season, charter_price_high_season, charter_price_mid_season, charter_price_low_season),
-        services!service_id(id, name, type),
-        time_slots!time_slot_id(id, name, start_time, end_time),
-        booking_statuses!booking_status_id(id, name, code),
-        payment_methods!payment_method_id(id, name, code)
-      `)
+      .select('*')
       .order('booking_date', { ascending: false })
 
     if (start && end) {
       query = query.gte('booking_date', start).lte('booking_date', end)
     }
 
-    const { data, error } = await query
+    const { data: bookings, error } = await query
 
     if (error) {
       console.error('[Bookings API] Supabase error:', error)
       return NextResponse.json([])
     }
 
-    console.log('[Bookings API] Found bookings:', data?.length || 0)
+    console.log('[Bookings API] Found bookings:', bookings?.length || 0)
 
-    // Rinomina i campi per compatibilità con il frontend
-    const bookings = (data || []).map((booking: any) => ({
+    if (!bookings || bookings.length === 0) {
+      return NextResponse.json([])
+    }
+
+    // Carica relazioni separatamente
+    const customerIds = [...new Set(bookings.map(b => b.customer_id).filter(Boolean))]
+    const boatIds = [...new Set(bookings.map(b => b.boat_id).filter(Boolean))]
+    const serviceIds = [...new Set(bookings.map(b => b.service_id).filter(Boolean))]
+    const timeSlotIds = [...new Set(bookings.map(b => b.time_slot_id).filter(Boolean))]
+    const statusIds = [...new Set(bookings.map(b => b.booking_status_id).filter(Boolean))]
+    const paymentMethodIds = [...new Set(bookings.map(b => b.payment_method_id).filter(Boolean))]
+
+    // Fetch in parallelo
+    const [customers, boats, services, timeSlots, statuses, paymentMethods] = await Promise.all([
+      customerIds.length > 0 
+        ? supabaseAdmin.from('customers').select('*').in('id', customerIds)
+        : { data: [] },
+      boatIds.length > 0
+        ? supabaseAdmin.from('boats').select('*').in('id', boatIds)
+        : { data: [] },
+      serviceIds.length > 0
+        ? supabaseAdmin.from('services').select('*').in('id', serviceIds)
+        : { data: [] },
+      timeSlotIds.length > 0
+        ? supabaseAdmin.from('time_slots').select('*').in('id', timeSlotIds)
+        : { data: [] },
+      statusIds.length > 0
+        ? supabaseAdmin.from('booking_statuses').select('*').in('id', statusIds)
+        : { data: [] },
+      paymentMethodIds.length > 0
+        ? supabaseAdmin.from('payment_methods').select('*').in('id', paymentMethodIds)
+        : { data: [] }
+    ])
+
+    // Crea mappe per lookup veloce
+    const customerMap = new Map((customers.data || []).map((c: any) => [c.id, c]))
+    const boatMap = new Map((boats.data || []).map((b: any) => [b.id, b]))
+    const serviceMap = new Map((services.data || []).map((s: any) => [s.id, s]))
+    const timeSlotMap = new Map((timeSlots.data || []).map((t: any) => [t.id, t]))
+    const statusMap = new Map((statuses.data || []).map((s: any) => [s.id, s]))
+    const paymentMethodMap = new Map((paymentMethods.data || []).map((p: any) => [p.id, p]))
+
+    // Combina i dati
+    const enrichedBookings = bookings.map((booking: any) => ({
       ...booking,
-      customer: booking.customers,
-      boat: booking.boats,
-      service: booking.services,
-      time_slot: booking.time_slots,
-      booking_status: booking.booking_statuses,
-      payment_method: booking.payment_methods
+      customer: customerMap.get(booking.customer_id) || null,
+      boat: boatMap.get(booking.boat_id) || null,
+      service: serviceMap.get(booking.service_id) || null,
+      time_slot: timeSlotMap.get(booking.time_slot_id) || null,
+      booking_status: statusMap.get(booking.booking_status_id) || null,
+      payment_method: paymentMethodMap.get(booking.payment_method_id) || null
     }))
+
+    console.log('[Bookings API] Enriched bookings:', enrichedBookings.length)
     
-    return NextResponse.json(bookings)
+    return NextResponse.json(enrichedBookings)
   } catch (error: any) {
     console.error('[Bookings API] Unexpected error:', error)
     return NextResponse.json([])
@@ -95,15 +132,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .insert(insertData)
-      .select(`
-        *,
-        customers!customer_id(id, first_name, last_name, email, phone),
-        boats!boat_id(id, name, boat_type),
-        services!service_id(id, name, type),
-        time_slots!time_slot_id(id, name, start_time, end_time),
-        booking_statuses!booking_status_id(id, name, code),
-        payment_methods!payment_method_id(id, name, code)
-      `)
+      .select('*')
       .single()
 
     if (error) {
@@ -113,18 +142,39 @@ export async function POST(request: Request) {
 
     console.log('[Bookings API] Booking created:', data.id)
 
-    // Rinomina campi
-    const booking = {
+    // Carica relazioni
+    const [customer, boat, service, timeSlot, status, paymentMethod] = await Promise.all([
+      data.customer_id 
+        ? supabaseAdmin.from('customers').select('*').eq('id', data.customer_id).single()
+        : { data: null },
+      data.boat_id
+        ? supabaseAdmin.from('boats').select('*').eq('id', data.boat_id).single()
+        : { data: null },
+      data.service_id
+        ? supabaseAdmin.from('services').select('*').eq('id', data.service_id).single()
+        : { data: null },
+      data.time_slot_id
+        ? supabaseAdmin.from('time_slots').select('*').eq('id', data.time_slot_id).single()
+        : { data: null },
+      data.booking_status_id
+        ? supabaseAdmin.from('booking_statuses').select('*').eq('id', data.booking_status_id).single()
+        : { data: null },
+      data.payment_method_id
+        ? supabaseAdmin.from('payment_methods').select('*').eq('id', data.payment_method_id).single()
+        : { data: null }
+    ])
+
+    const enrichedBooking = {
       ...data,
-      customer: data.customers,
-      boat: data.boats,
-      service: data.services,
-      time_slot: data.time_slots,
-      booking_status: data.booking_statuses,
-      payment_method: data.payment_methods
+      customer: customer.data,
+      boat: boat.data,
+      service: service.data,
+      time_slot: timeSlot.data,
+      booking_status: status.data,
+      payment_method: paymentMethod.data
     }
 
-    return NextResponse.json(booking)
+    return NextResponse.json(enrichedBooking)
   } catch (error: any) {
     console.error('[Bookings API] Error creating booking:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
