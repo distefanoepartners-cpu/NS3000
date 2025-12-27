@@ -8,8 +8,8 @@ interface BookingModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: () => void
-  booking?: any // Se presente, è modifica. Se null, è creazione
-  preselectedDate?: Date // Data preselezionata dal calendario
+  booking?: any
+  preselectedDate?: Date
 }
 
 export default function BookingModal({ 
@@ -53,7 +53,6 @@ export default function BookingModal({
       loadOptions()
       
       if (booking) {
-        // Modalità modifica
         setFormData({
           customer_id: booking.customer_id || '',
           boat_id: booking.boat_id || '',
@@ -71,7 +70,6 @@ export default function BookingModal({
           notes: booking.notes || ''
         })
       } else if (preselectedDate) {
-        // Modalità creazione con data preselezionata
         setFormData(prev => ({
           ...prev,
           booking_date: format(preselectedDate, 'yyyy-MM-dd')
@@ -105,7 +103,6 @@ export default function BookingModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    // Validazioni
     if (!formData.customer_id) {
       toast.error('Seleziona un cliente')
       return
@@ -157,288 +154,263 @@ export default function BookingModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl max-w-4xl w-full my-8">
-        {/* Header */}
-        <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white z-10 rounded-t-xl">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-5xl w-full max-h-[95vh] flex flex-col">
+        {/* Header - Fixed */}
+        <div className="p-4 border-b flex items-center justify-between bg-white rounded-t-xl flex-shrink-0">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-xl font-bold text-gray-900">
               {booking ? 'Modifica Prenotazione' : 'Nuova Prenotazione'}
             </h2>
             {booking && (
-              <p className="text-sm text-gray-600 mt-1">{booking.booking_number}</p>
+              <p className="text-xs text-gray-600 mt-1">{booking.booking_number}</p>
             )}
           </div>
           <button 
             onClick={onClose} 
-            className="text-gray-400 hover:text-gray-600 text-2xl"
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
           >
             ×
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {loadingOptions ? (
-            <div className="text-center py-8 text-gray-600">Caricamento...</div>
-          ) : (
-            <>
-              {/* Cliente e Barca */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cliente *
-                  </label>
-                  <select
-                    value={formData.customer_id}
-                    onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                  >
-                    <option value="">Seleziona cliente...</option>
-                    {options.customers.map((c: any) => (
-                      <option key={c.id} value={c.id}>
-                        {c.first_name} {c.last_name} - {c.email}
-                      </option>
-                    ))}
-                  </select>
+        {/* Form - Scrollable */}
+        <div className="overflow-y-auto flex-1">
+          <form id="booking-form" onSubmit={handleSubmit} className="p-4">
+            {loadingOptions ? (
+              <div className="text-center py-8 text-gray-600">Caricamento...</div>
+            ) : (
+              <div className="space-y-4">
+                {/* Cliente e Barca - 2 colonne */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
+                    <select
+                      value={formData.customer_id}
+                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      required
+                    >
+                      <option value="">Seleziona...</option>
+                      {options.customers.map((c: any) => (
+                        <option key={c.id} value={c.id}>
+                          {c.first_name} {c.last_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Barca *</label>
+                    <select
+                      value={formData.boat_id}
+                      onChange={(e) => setFormData({ ...formData, boat_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      required
+                    >
+                      <option value="">Seleziona...</option>
+                      {options.boats.map((b: any) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Barca *
-                  </label>
-                  <select
-                    value={formData.boat_id}
-                    onChange={(e) => setFormData({ ...formData, boat_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                  >
-                    <option value="">Seleziona barca...</option>
-                    {options.boats.map((b: any) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.boat_type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                {/* Servizio e Tipo - 2 colonne */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Servizio *</label>
+                    <select
+                      value={formData.service_id}
+                      onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      required
+                    >
+                      <option value="">Seleziona...</option>
+                      {options.services.map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* Servizio e Tipo */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Servizio *
-                  </label>
-                  <select
-                    value={formData.service_id}
-                    onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                  >
-                    <option value="">Seleziona servizio...</option>
-                    {options.services.map((s: any) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.type})
-                      </option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Servizio</label>
+                    <select
+                      value={formData.service_type}
+                      onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    >
+                      <option value="rental">Noleggio</option>
+                      <option value="charter">Locazione</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tipo Servizio
-                  </label>
-                  <select
-                    value={formData.service_type}
-                    onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="rental">Noleggio</option>
-                    <option value="charter">Locazione</option>
-                  </select>
-                </div>
-              </div>
+                {/* Data, Orario, Passeggeri - 3 colonne */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Data *</label>
+                    <input
+                      type="date"
+                      value={formData.booking_date}
+                      onChange={(e) => setFormData({ ...formData, booking_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      required
+                    />
+                  </div>
 
-              {/* Data e Orario */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fascia Oraria</label>
+                    <select
+                      value={formData.time_slot_id}
+                      onChange={(e) => setFormData({ ...formData, time_slot_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    >
+                      <option value="">Nessuna</option>
+                      {options.timeSlots.map((t: any) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Passeggeri</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.num_passengers}
+                      onChange={(e) => setFormData({ ...formData, num_passengers: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Stato */}
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stato Prenotazione</label>
+                    <select
+                      value={formData.booking_status_id}
+                      onChange={(e) => setFormData({ ...formData, booking_status_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    >
+                      <option value="">Seleziona...</option>
+                      {options.bookingStatuses.map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Prezzi - Box */}
+                <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                  <h3 className="font-semibold text-gray-900 mb-3 text-sm">💰 Prezzi e Pagamenti</h3>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Prezzo Base</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.base_price}
+                        onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Prezzo Finale</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.final_price}
+                        onChange={(e) => setFormData({ ...formData, final_price: parseFloat(e.target.value) })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Acconto</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.deposit_amount}
+                        onChange={(e) => setFormData({ ...formData, deposit_amount: parseFloat(e.target.value) })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Saldo</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.balance_amount}
+                        onChange={(e) => setFormData({ ...formData, balance_amount: parseFloat(e.target.value) })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Metodo Pagamento</label>
+                    <select
+                      value={formData.payment_method_id}
+                      onChange={(e) => setFormData({ ...formData, payment_method_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    >
+                      <option value="">Seleziona...</option>
+                      {options.paymentMethods.map((p: any) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Note */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Data *
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.booking_date}
-                    onChange={(e) => setFormData({ ...formData, booking_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    rows={2}
+                    placeholder="Note aggiuntive..."
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fascia Oraria
-                  </label>
-                  <select
-                    value={formData.time_slot_id}
-                    onChange={(e) => setFormData({ ...formData, time_slot_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="">Seleziona orario...</option>
-                    {options.timeSlots.map((t: any) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} ({t.start_time} - {t.end_time})
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
+            )}
+          </form>
+        </div>
 
-              {/* Passeggeri e Stato */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Numero Passeggeri
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.num_passengers}
-                    onChange={(e) => setFormData({ ...formData, num_passengers: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Stato Prenotazione
-                  </label>
-                  <select
-                    value={formData.booking_status_id}
-                    onChange={(e) => setFormData({ ...formData, booking_status_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="">Seleziona stato...</option>
-                    {options.bookingStatuses.map((s: any) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Prezzi */}
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-4">💰 Prezzi e Pagamenti</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Prezzo Base (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.base_price}
-                      onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Prezzo Finale (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.final_price}
-                      onChange={(e) => setFormData({ ...formData, final_price: parseFloat(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Acconto (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.deposit_amount}
-                      onChange={(e) => setFormData({ ...formData, deposit_amount: parseFloat(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Saldo (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.balance_amount}
-                      onChange={(e) => setFormData({ ...formData, balance_amount: parseFloat(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Metodo Pagamento
-                  </label>
-                  <select
-                    value={formData.payment_method_id}
-                    onChange={(e) => setFormData({ ...formData, payment_method_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="">Seleziona metodo...</option>
-                    {options.paymentMethods.map((p: any) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Note */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Note
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  rows={3}
-                  placeholder="Note aggiuntive..."
-                />
-              </div>
-            </>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              disabled={loading}
-            >
-              Annulla
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              disabled={loading || loadingOptions}
-            >
-              {loading ? 'Salvataggio...' : (booking ? 'Aggiorna' : 'Crea Prenotazione')}
-            </button>
-          </div>
-        </form>
+        {/* Footer - Fixed */}
+        <div className="flex gap-3 p-4 border-t bg-gray-50 rounded-b-xl flex-shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
+            disabled={loading}
+          >
+            Annulla
+          </button>
+          <button
+            type="submit"
+            form="booking-form"
+            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
+            disabled={loading || loadingOptions}
+          >
+            {loading ? 'Salvataggio...' : (booking ? 'Aggiorna' : 'Crea Prenotazione')}
+          </button>
+        </div>
       </div>
     </div>
   )

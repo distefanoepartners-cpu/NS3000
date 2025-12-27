@@ -25,6 +25,8 @@ export default function PlanningPage() {
   const [view, setView] = useState<View>('week')
   const [date, setDate] = useState(new Date())
   const [events, setEvents] = useState<any[]>([])
+  const [boats, setBoats] = useState<any[]>([])
+  const [selectedBoatId, setSelectedBoatId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [showUnavailabilityModal, setShowUnavailabilityModal] = useState(false)
@@ -35,8 +37,19 @@ export default function PlanningPage() {
   const [selectedUnavailability, setSelectedUnavailability] = useState<any>(null)
 
   useEffect(() => {
+    loadBoats()
     loadBookings()
-  }, [date, view])
+  }, [date, view, selectedBoatId])
+
+  async function loadBoats() {
+    try {
+      const res = await fetch('/api/boats')
+      const data = await res.json()
+      setBoats(data || [])
+    } catch (error) {
+      console.error('Error loading boats:', error)
+    }
+  }
 
   async function loadBookings() {
     try {
@@ -81,7 +94,14 @@ export default function PlanningPage() {
         allDay: true
       }))
 
-      setEvents([...bookingEvents, ...unavailEvents])
+      const allEvents = [...bookingEvents, ...unavailEvents]
+
+      // Filtra per barca selezionata
+      const filteredEvents = selectedBoatId
+        ? allEvents.filter(e => e.resource.boat_id === selectedBoatId)
+        : allEvents
+
+      setEvents(filteredEvents)
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error('Errore caricamento dati')
@@ -263,37 +283,81 @@ export default function PlanningPage() {
         </div>
       </div>
 
-      {/* Calendario */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-1 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-gray-600">Caricamento...</div>
+      {/* Layout con Sidebar Barche + Calendario */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex" style={{ height: 'calc(100vh - 320px)' }}>
+        {/* Sidebar Barche */}
+        <div className="w-64 border-r border-gray-200 overflow-y-auto bg-gray-50 flex-shrink-0">
+          <div className="p-3 border-b border-gray-200 bg-white sticky top-0 z-10">
+            <h3 className="font-semibold text-gray-900 text-sm">🚤 Barche</h3>
           </div>
-        ) : (
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: '100%' }}
-            view={view}
-            onView={setView}
-            date={date}
-            onNavigate={setDate}
-            selectable
-            onSelectSlot={handleSelectSlot}
-            onSelectEvent={handleSelectEvent}
-            eventPropGetter={eventStyleGetter}
-            messages={messages}
-            culture="it"
-            min={new Date(2024, 0, 1, 8, 0, 0)} // Inizia alle 8:00
-            max={new Date(2024, 0, 1, 20, 0, 0)} // Finisce alle 20:00
-            step={30}
-            timeslots={2}
-            views={['month', 'week', 'day']}
-            popup
-          />
-        )}
+          <div className="p-2">
+            <button
+              onClick={() => setSelectedBoatId(null)}
+              className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors text-sm ${
+                !selectedBoatId 
+                  ? 'bg-blue-100 text-blue-700 font-semibold' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              📋 Tutte le barche
+              <div className="text-xs opacity-75 mt-0.5">
+                {events.filter(e => e.type === 'booking').length} prenotazioni
+              </div>
+            </button>
+            {boats.map(boat => {
+              const boatEvents = events.filter(e => e.resource.boat_id === boat.id && e.type === 'booking')
+              return (
+                <button
+                  key={boat.id}
+                  onClick={() => setSelectedBoatId(boat.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors text-sm ${
+                    selectedBoatId === boat.id 
+                      ? 'bg-blue-100 text-blue-700 font-semibold' 
+                      : 'hover:bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  🚤 {boat.name}
+                  <div className="text-xs opacity-75 mt-0.5">
+                    {boat.boat_type} • {boatEvents.length} prenotazioni
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Calendario */}
+        <div className="flex-1 p-4 overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-gray-600">Caricamento...</div>
+            </div>
+          ) : (
+            <Calendar
+              localizer={localizer}
+              events={events}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: '100%' }}
+              view={view}
+              onView={setView}
+              date={date}
+              onNavigate={setDate}
+              selectable
+              onSelectSlot={handleSelectSlot}
+              onSelectEvent={handleSelectEvent}
+              eventPropGetter={eventStyleGetter}
+              messages={messages}
+              culture="it"
+              min={new Date(2024, 0, 1, 8, 0, 0)}
+              max={new Date(2024, 0, 1, 20, 0, 0)}
+              step={30}
+              timeslots={2}
+              views={['month', 'week', 'day']}
+              popup
+            />
+          )}
+        </div>
       </div>
 
       {/* Info */}
