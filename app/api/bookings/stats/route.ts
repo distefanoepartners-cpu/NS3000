@@ -7,16 +7,19 @@ export async function GET(request: Request) {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-    // Carica tutte le prenotazioni
+    // Carica tutte le prenotazioni con stato
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
-      .select('*')
+      .select(`
+        *,
+        booking_status:booking_statuses(code)
+      `)
 
     if (error) throw error
 
     // Calcola statistiche
     const stats = {
-      // Ricavi oggi
+      // Ricavi oggi (somma acconto + saldo)
       ricavi_oggi: bookings
         ?.filter(b => b.booking_date === today)
         .reduce((sum, b) => sum + (b.deposit_amount || 0) + (b.balance_amount || 0), 0) || 0,
@@ -48,17 +51,13 @@ export async function GET(request: Request) {
       totale_prenotazioni: bookings?.length || 0,
 
       prenotazioni_confermate: bookings
-        ?.filter(b => {
-          // Cerca booking_status tramite JOIN o carica separatamente
-          // Per ora usiamo un conteggio semplice
-          return true // TODO: filtrare per stato confermato
-        }).length || 0,
+        ?.filter(b => b.booking_status?.code === 'confirmed').length || 0,
 
       prenotazioni_pagate: bookings
         ?.filter(b => {
           const totale = b.final_price || 0
           const ricevuto = (b.deposit_amount || 0) + (b.balance_amount || 0)
-          return ricevuto >= totale
+          return ricevuto >= totale && totale > 0
         }).length || 0
     }
 

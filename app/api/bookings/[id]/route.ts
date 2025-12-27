@@ -1,151 +1,86 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-client'
 
-// GET - Recupera singola prenotazione
+// GET - Singola prenotazione
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Prima ottieni il booking base
-    const { data: booking, error: bookingError } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('*')
+      .select(`
+        *,
+        customer:customers(id, first_name, last_name, email, phone),
+        boat:boats(id, name, boat_type, rental_price_high_season, rental_price_mid_season, rental_price_low_season, charter_price_high_season, charter_price_mid_season, charter_price_low_season),
+        service:services(id, name, type),
+        time_slot:time_slots(id, name, start_time, end_time),
+        booking_status:booking_statuses(id, name, code),
+        payment_method:payment_methods(id, name, code)
+      `)
       .eq('id', params.id)
       .single()
 
-    if (bookingError) throw bookingError
+    if (error) throw error
 
-    // Poi carica le relazioni separatamente (solo se non sono null)
-    const relations: any = {}
-
-    if (booking.customer_id) {
-      const { data } = await supabaseAdmin.from('customers').select('id, first_name, last_name, email, phone').eq('id', booking.customer_id).single()
-      relations.customer = data
-    }
-
-    if (booking.boat_id) {
-      const { data } = await supabaseAdmin.from('boats').select('id, name, boat_type').eq('id', booking.boat_id).single()
-      relations.boat = data
-    }
-
-    if (booking.service_id) {
-      const { data } = await supabaseAdmin.from('services').select('id, name, type').eq('id', booking.service_id).single()
-      relations.service = data
-    }
-
-    if (booking.supplier_id) {
-      const { data } = await supabaseAdmin.from('suppliers').select('id, name').eq('id', booking.supplier_id).single()
-      relations.supplier = data
-    }
-
-    if (booking.port_id) {
-      const { data } = await supabaseAdmin.from('ports').select('id, name, code').eq('id', booking.port_id).single()
-      relations.port = data
-    }
-
-    if (booking.time_slot_id) {
-      const { data } = await supabaseAdmin.from('time_slots').select('id, name, start_time, end_time').eq('id', booking.time_slot_id).single()
-      relations.time_slot = data
-    }
-
-    if (booking.booking_status_id) {
-      const { data } = await supabaseAdmin.from('booking_statuses').select('id, name, code, color_code').eq('id', booking.booking_status_id).single()
-      relations.booking_status = data
-    }
-
-    return NextResponse.json({ ...booking, ...relations })
+    return NextResponse.json(data)
   } catch (error: any) {
-    console.error('Errore caricamento prenotazione:', error)
+    console.error('Error fetching booking:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// PUT - Aggiorna prenotazione completa
+// PUT - Aggiorna prenotazione
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const body = await request.json()
-    
-    // DEBUG: Log del payload ricevuto
-    console.log('PUT /api/bookings/[id] - Body received:', JSON.stringify(body, null, 2))
 
-    const payload = {
-      customer_id: body.customer_id,
-      boat_id: body.boat_id,
-      service_id: body.service_id,
-      service_type: body.service_type || 'rental',
-      supplier_id: body.supplier_id && body.supplier_id !== '' ? body.supplier_id : null,
-      port_id: body.port_id,
-      time_slot_id: body.time_slot_id,
-      custom_time: body.custom_time || null,
-      booking_status_id: body.booking_status_id,
+    const updateData: any = {
       booking_date: body.booking_date,
-      num_passengers: body.num_passengers ? parseInt(body.num_passengers) : null,
-      base_price: body.base_price ? parseFloat(body.base_price) : 0,
-      final_price: body.final_price ? parseFloat(body.final_price) : 0,
-      deposit_amount: body.deposit_amount ? parseFloat(body.deposit_amount) : 0,
-      balance_amount: body.balance_amount ? parseFloat(body.balance_amount) : 0,
-      security_deposit: body.security_deposit ? parseFloat(body.security_deposit) : 0,
-      payment_method_id: body.payment_method_id && body.payment_method_id !== '' ? body.payment_method_id : null,
-      total_paid: body.total_paid ? parseFloat(body.total_paid) : 0,
-      notes: body.notes || null
+      num_passengers: body.num_passengers || 1,
+      base_price: body.base_price || 0,
+      final_price: body.final_price || 0,
+      deposit_amount: body.deposit_amount || 0,
+      balance_amount: body.balance_amount || 0,
+      notes: body.notes || null,
+      service_type: body.service_type || 'rental'
     }
-    
-    // DEBUG: Log del payload processato
-    console.log('PUT /api/bookings/[id] - Payload to DB:', JSON.stringify(payload, null, 2))
 
-    // Usa chiamata HTTP diretta invece del client JS (che ha bug)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    
-    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/fix_booking_20241227`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`
-      },
-      body: JSON.stringify({
-        p_booking_id: params.id,
-        p_data: payload
-      })
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      console.error('Supabase RPC HTTP error:', error)
-      throw new Error(error.message || 'RPC call failed')
-    }
-    
-    return NextResponse.json({ success: true, id: params.id })
-  } catch (error: any) {
-    console.error('Errore aggiornamento prenotazione:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-}
-
-// PATCH - Aggiorna solo alcuni campi
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const body = await request.json()
+    // Campi opzionali - aggiorna solo se presenti
+    if (body.customer_id) updateData.customer_id = body.customer_id
+    if (body.boat_id) updateData.boat_id = body.boat_id
+    if (body.service_id) updateData.service_id = body.service_id
+    if (body.time_slot_id) updateData.time_slot_id = body.time_slot_id
+    if (body.booking_status_id) updateData.booking_status_id = body.booking_status_id
+    if (body.payment_method_id) updateData.payment_method_id = body.payment_method_id
+    if (body.security_deposit !== undefined) updateData.security_deposit = body.security_deposit
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .update(body)
+      .update(updateData)
       .eq('id', params.id)
-      .select()
+      .select(`
+        *,
+        customer:customers(id, first_name, last_name, email, phone),
+        boat:boats(id, name, boat_type),
+        service:services(id, name, type),
+        time_slot:time_slots(id, name, start_time, end_time),
+        booking_status:booking_statuses(id, name, code),
+        payment_method:payment_methods(id, name, code)
+      `)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Supabase update error:', error)
+      throw error
+    }
+
     return NextResponse.json(data)
   } catch (error: any) {
-    console.error('Errore aggiornamento parziale prenotazione:', error)
+    console.error('Error updating booking:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -162,9 +97,10 @@ export async function DELETE(
       .eq('id', params.id)
 
     if (error) throw error
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Errore eliminazione prenotazione:', error)
+    console.error('Error deleting booking:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

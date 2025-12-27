@@ -10,6 +10,7 @@ interface UnavailabilityModalProps {
   onSave: () => void
   unavailability?: any
   preselectedDate?: Date
+  preselectedBoatId?: string
 }
 
 export default function UnavailabilityModal({ 
@@ -17,7 +18,8 @@ export default function UnavailabilityModal({
   onClose, 
   onSave, 
   unavailability,
-  preselectedDate 
+  preselectedDate,
+  preselectedBoatId 
 }: UnavailabilityModalProps) {
   const [formData, setFormData] = useState({
     boat_id: '',
@@ -44,17 +46,18 @@ export default function UnavailabilityModal({
           reason: unavailability.reason || '',
           notes: unavailability.notes || ''
         })
-      } else if (preselectedDate) {
-        // Modalità creazione con data preselezionata
-        const dateStr = format(preselectedDate, 'yyyy-MM-dd')
+      } else {
+        // Modalità creazione - precompila data e barca
+        const dateStr = preselectedDate ? format(preselectedDate, 'yyyy-MM-dd') : ''
         setFormData(prev => ({
           ...prev,
           date_from: dateStr,
-          date_to: dateStr
+          date_to: dateStr,
+          boat_id: preselectedBoatId || ''
         }))
       }
     }
-  }, [isOpen, unavailability, preselectedDate])
+  }, [isOpen, unavailability, preselectedDate, preselectedBoatId])
 
   async function loadBoats() {
     try {

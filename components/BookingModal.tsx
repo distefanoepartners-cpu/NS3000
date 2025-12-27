@@ -10,6 +10,7 @@ interface BookingModalProps {
   onSave: () => void
   booking?: any
   preselectedDate?: Date
+  preselectedBoatId?: string
 }
 
 export default function BookingModal({ 
@@ -17,7 +18,8 @@ export default function BookingModal({
   onClose, 
   onSave, 
   booking, 
-  preselectedDate 
+  preselectedDate,
+  preselectedBoatId 
 }: BookingModalProps) {
   const [formData, setFormData] = useState({
     customer_id: '',
@@ -47,6 +49,7 @@ export default function BookingModal({
 
   const [loading, setLoading] = useState(false)
   const [loadingOptions, setLoadingOptions] = useState(true)
+  const [showCreateCustomer, setShowCreateCustomer] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -69,14 +72,16 @@ export default function BookingModal({
           booking_status_id: booking.booking_status_id || '',
           notes: booking.notes || ''
         })
-      } else if (preselectedDate) {
+      } else {
+        // Nuova prenotazione - precompila data e barca
         setFormData(prev => ({
           ...prev,
-          booking_date: format(preselectedDate, 'yyyy-MM-dd')
+          booking_date: preselectedDate ? format(preselectedDate, 'yyyy-MM-dd') : '',
+          boat_id: preselectedBoatId || ''
         }))
       }
     }
-  }, [isOpen, booking, preselectedDate])
+  }, [isOpen, booking, preselectedDate, preselectedBoatId])
 
   async function loadOptions() {
     try {
@@ -99,6 +104,22 @@ export default function BookingModal({
       setLoadingOptions(false)
     }
   }
+
+  // Auto-carica prezzo quando si seleziona una barca
+  useEffect(() => {
+    if (formData.boat_id && options.boats.length > 0) {
+      const selectedBoat = options.boats.find((b: any) => b.id === formData.boat_id)
+      if (selectedBoat && !booking) {
+        // Carica prezzo base dalla barca (esempio: usa rental_price_high_season)
+        const basePrice = selectedBoat.rental_price_high_season || 0
+        setFormData(prev => ({
+          ...prev,
+          base_price: basePrice,
+          final_price: basePrice
+        }))
+      }
+    }
+  }, [formData.boat_id, options.boats, booking])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -185,19 +206,29 @@ export default function BookingModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
-                    <select
-                      value={formData.customer_id}
-                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      required
-                    >
-                      <option value="">Seleziona...</option>
-                      {options.customers.map((c: any) => (
-                        <option key={c.id} value={c.id}>
-                          {c.first_name} {c.last_name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex gap-2">
+                      <select
+                        value={formData.customer_id}
+                        onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        required
+                      >
+                        <option value="">Seleziona...</option>
+                        {options.customers.map((c: any) => (
+                          <option key={c.id} value={c.id}>
+                            {c.first_name} {c.last_name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateCustomer(true)}
+                        className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium whitespace-nowrap"
+                        title="Crea nuovo cliente"
+                      >
+                        ➕ Nuovo
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -412,6 +443,98 @@ export default function BookingModal({
           </button>
         </div>
       </div>
+
+      {/* Quick Create Customer Modal */}
+      {showCreateCustomer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Crea Nuovo Cliente</h3>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault()
+                const formData = new FormData(e.currentTarget)
+                
+                try {
+                  const res = await fetch('/api/customers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      first_name: formData.get('first_name'),
+                      last_name: formData.get('last_name'),
+                      email: formData.get('email'),
+                      phone: formData.get('phone')
+                    })
+                  })
+
+                  if (!res.ok) throw new Error('Errore creazione cliente')
+
+                  const newCustomer = await res.json()
+                  toast.success('Cliente creato!')
+                  
+                  // Ricarica opzioni e seleziona il nuovo cliente
+                  await loadOptions()
+                  setFormData(prev => ({ ...prev, customer_id: newCustomer.id }))
+                  setShowCreateCustomer(false)
+                } catch (error: any) {
+                  toast.error(error.message)
+                }
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+                <input
+                  type="text"
+                  name="first_name"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cognome *</label>
+                <input
+                  type="text"
+                  name="last_name"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateCustomer(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Crea Cliente
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
