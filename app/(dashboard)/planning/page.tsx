@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { Calendar, dateFnsLocalizer, View } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, addDays, startOfMonth, endOfMonth } from 'date-fns'
 import { it } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { toast } from 'sonner'
 import BookingModal from '@/components/BookingModal'
+import UnavailabilityModal from '@/components/UnavailabilityModal'
 
 const locales = {
   'it': it,
@@ -26,8 +27,12 @@ export default function PlanningPage() {
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showBookingModal, setShowBookingModal] = useState(false)
+  const [showUnavailabilityModal, setShowUnavailabilityModal] = useState(false)
+  const [showSlotMenu, setShowSlotMenu] = useState(false)
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
+  const [selectedUnavailability, setSelectedUnavailability] = useState<any>(null)
 
   useEffect(() => {
     loadBookings()
@@ -46,55 +51,110 @@ export default function PlanningPage() {
         ? endOfMonth(date)
         : addDays(start, 6)
 
-      const res = await fetch(`/api/bookings?start=${format(start, 'yyyy-MM-dd')}&end=${format(end, 'yyyy-MM-dd')}`)
-      const bookings = await res.json()
+      // Carica prenotazioni
+      const bookingsRes = await fetch(`/api/bookings?start=${format(start, 'yyyy-MM-dd')}&end=${format(end, 'yyyy-MM-dd')}`)
+      const bookings = await bookingsRes.json()
 
-      // Converti prenotazioni in eventi per il calendario
-      const calendarEvents = bookings.map((booking: any) => ({
+      // Carica indisponibilità
+      const unavailRes = await fetch(`/api/unavailabilities?start=${format(start, 'yyyy-MM-dd')}&end=${format(end, 'yyyy-MM-dd')}`)
+      const unavailabilities = await unavailRes.json()
+
+      // Converti prenotazioni in eventi
+      const bookingEvents = bookings.map((booking: any) => ({
         id: booking.id,
         title: `${booking.customer?.first_name} ${booking.customer?.last_name} - ${booking.boat?.name}`,
         start: new Date(booking.booking_date + 'T' + (booking.time_slot?.start_time || '09:00')),
         end: new Date(booking.booking_date + 'T' + (booking.time_slot?.end_time || '18:00')),
-        resource: booking, // Dati completi
+        resource: booking,
+        type: 'booking',
         status: booking.booking_status?.code || 'pending'
       }))
 
-      setEvents(calendarEvents)
+      // Converti indisponibilità in eventi
+      const unavailEvents = unavailabilities.map((unavail: any) => ({
+        id: unavail.id,
+        title: `🚫 ${unavail.boat?.name} - ${unavail.reason || 'Indisponibile'}`,
+        start: new Date(unavail.date_from + 'T00:00:00'),
+        end: new Date(unavail.date_to + 'T23:59:59'),
+        resource: unavail,
+        type: 'unavailability',
+        allDay: true
+      }))
+
+      setEvents([...bookingEvents, ...unavailEvents])
     } catch (error) {
-      console.error('Error loading bookings:', error)
-      toast.error('Errore caricamento prenotazioni')
+      console.error('Error loading data:', error)
+      toast.error('Errore caricamento dati')
     } finally {
       setLoading(false)
     }
   }
 
-  // Gestisci click su slot vuoto
-  function handleSelectSlot({ start }: { start: Date }) {
+  // Gestisci click su slot vuoto - Mostra menu
+  function handleSelectSlot({ start, box }: { start: Date, box?: { x: number, y: number } }) {
     setSelectedDate(start)
+    setMenuPosition({ x: box?.x || 0, y: box?.y || 0 })
+    setShowSlotMenu(true)
+  }
+
+  // Crea prenotazione
+  function openBookingModal() {
+    setShowSlotMenu(false)
     setSelectedBooking(null)
     setShowBookingModal(true)
+  }
+
+  // Crea indisponibilità
+  function openUnavailabilityModal() {
+    setShowSlotMenu(false)
+    setSelectedUnavailability(null)
+    setShowUnavailabilityModal(true)
   }
 
   // Gestisci click su evento esistente
   function handleSelectEvent(event: any) {
-    setSelectedBooking(event.resource)
-    setSelectedDate(null)
-    setShowBookingModal(true)
+    if (event.type === 'booking') {
+      setSelectedBooking(event.resource)
+      setSelectedDate(null)
+      setShowBookingModal(true)
+    } else if (event.type === 'unavailability') {
+      setSelectedUnavailability(event.resource)
+      setSelectedDate(null)
+      setShowUnavailabilityModal(true)
+    }
   }
 
-  // Chiudi modal e ricarica
+  // Chiudi modals e ricarica
   function handleCloseModal() {
     setShowBookingModal(false)
+    setShowUnavailabilityModal(false)
+    setShowSlotMenu(false)
     setSelectedDate(null)
     setSelectedBooking(null)
+    setSelectedUnavailability(null)
   }
 
-  function handleSaveBooking() {
+  function handleSave() {
     loadBookings()
   }
 
-  // Stile eventi in base allo stato
+  // Stile eventi in base al tipo e stato
   const eventStyleGetter = (event: any) => {
+    if (event.type === 'unavailability') {
+      return {
+        style: {
+          backgroundColor: '#94a3b8', // gray
+          borderRadius: '5px',
+          opacity: 0.7,
+          color: 'white',
+          border: '2px dashed #64748b',
+          display: 'block',
+          fontSize: view === 'month' ? '11px' : '13px',
+          padding: '2px 5px'
+        }
+      }
+    }
+
     let backgroundColor = '#3b82f6' // blue default
     
     switch (event.status) {
@@ -238,15 +298,63 @@ export default function PlanningPage() {
 
       {/* Info */}
       <div className="mt-4 text-sm text-gray-500 text-center">
-        💡 Clicca su uno slot vuoto per creare una nuova prenotazione • Clicca su un evento per modificarlo
+        💡 Clicca su uno slot vuoto per creare prenotazione o indisponibilità • Clicca su un evento per modificarlo
       </div>
+
+      {/* Slot Menu (Prenotazione o Indisponibilità) */}
+      {showSlotMenu && (
+        <>
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setShowSlotMenu(false)}
+          />
+          <div 
+            className="fixed z-50 bg-white rounded-lg shadow-xl border-2 border-gray-200 py-2 min-w-[200px]"
+            style={{ 
+              top: `${menuPosition.y}px`, 
+              left: `${menuPosition.x}px` 
+            }}
+          >
+            <button
+              onClick={openBookingModal}
+              className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors"
+            >
+              <span className="text-2xl">📅</span>
+              <div>
+                <div className="font-semibold text-gray-900">Nuova Prenotazione</div>
+                <div className="text-xs text-gray-500">Cliente e servizio</div>
+              </div>
+            </button>
+            <div className="border-t border-gray-200 my-1"></div>
+            <button
+              onClick={openUnavailabilityModal}
+              className="w-full px-4 py-3 text-left hover:bg-red-50 flex items-center gap-3 transition-colors"
+            >
+              <span className="text-2xl">🚫</span>
+              <div>
+                <div className="font-semibold text-gray-900">Indisponibilità</div>
+                <div className="text-xs text-gray-500">Blocca date barca</div>
+              </div>
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Booking Modal */}
       <BookingModal
         isOpen={showBookingModal}
         onClose={handleCloseModal}
-        onSave={handleSaveBooking}
+        onSave={handleSave}
         booking={selectedBooking}
+        preselectedDate={selectedDate || undefined}
+      />
+
+      {/* Unavailability Modal */}
+      <UnavailabilityModal
+        isOpen={showUnavailabilityModal}
+        onClose={handleCloseModal}
+        onSave={handleSave}
+        unavailability={selectedUnavailability}
         preselectedDate={selectedDate || undefined}
       />
     </div>
