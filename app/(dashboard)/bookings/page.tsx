@@ -1,1099 +1,504 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Plus, Pencil, Trash2, Calendar, Clock, UserPlus, User } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { format } from 'date-fns'
+import { it } from 'date-fns/locale'
+import { toast } from 'sonner'
+import BookingModal from '@/components/BookingModal'
 
-type BookingOption = {
-  customers: Array<{ id: string; first_name: string; last_name: string }>
-  boats: Array<{ 
-    id: string
-    name: string
-    has_rental: boolean
-    has_charter: boolean
-    // Prezzi NOLEGGIO
-    price_rental_apr_may_oct_half_day: number | null
-    price_rental_apr_may_oct_full_day: number | null
-    price_rental_apr_may_oct_week: number | null
-    price_rental_june_half_day: number | null
-    price_rental_june_full_day: number | null
-    price_rental_june_week: number | null
-    price_rental_july_sept_half_day: number | null
-    price_rental_july_sept_full_day: number | null
-    price_rental_july_sept_week: number | null
-    price_rental_august_half_day: number | null
-    price_rental_august_full_day: number | null
-    price_rental_august_week: number | null
-    // Prezzi LOCAZIONE
-    price_charter_apr_may_oct_half_day: number | null
-    price_charter_apr_may_oct_full_day: number | null
-    price_charter_apr_may_oct_week: number | null
-    price_charter_june_half_day: number | null
-    price_charter_june_full_day: number | null
-    price_charter_june_week: number | null
-    price_charter_july_sept_half_day: number | null
-    price_charter_july_sept_full_day: number | null
-    price_charter_july_sept_week: number | null
-    price_charter_august_half_day: number | null
-    price_charter_august_full_day: number | null
-    price_charter_august_week: number | null
-  }>
-  services: Array<{ 
-    id: string
-    name: string
-    type: string
-    price_per_person: number | null
-    is_collective_tour: boolean
-    is_on_demand: boolean
-  }>
-  suppliers: Array<{ id: string; name: string }>
-  ports: Array<{ id: string; name: string; code: string }>
-  timeSlots: Array<{ id: string; name: string; start_time: string; end_time: string }>
-  statuses: Array<{ id: string; name: string; code: string }>
-  paymentMethods: Array<{ id: string; name: string; code: string }>
-}
-
-type Booking = {
-  id: string
-  booking_number: string
-  booking_date: string
-  base_price: number
-  security_deposit: number
-  notes: string | null
-  customer: { id: string; first_name: string; last_name: string; email: string; phone: string }
-  boat: { id: string; name: string; boat_type: string }
-  service: { id: string; name: string; type: string }
-  supplier?: { id: string; name: string }
-  port: { id: string; name: string; code: string }
-  time_slot: { id: string; name: string; start_time: string; end_time: string }
-  booking_status: { id: string; name: string; code: string; color_code: string }
-  final_price: number
-  deposit_amount: number
-  balance_amount: number
-  num_passengers: number | null
-  custom_time: string | null
-}
-
-export default function BookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [options, setOptions] = useState<BookingOption | null>(null)
+export default function PrenotazioniPage() {
+  const router = useRouter()
+  const [bookings, setBookings] = useState<any[]>([])
+  const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [customerDialogOpen, setCustomerDialogOpen] = useState(false)
+  const [filtroStato, setFiltroStato] = useState<string>('tutti')
+  const [filtroMetodo, setFiltroMetodo] = useState<string>('tutti')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showModal, setShowModal] = useState(false)
   const [editingBooking, setEditingBooking] = useState<any>(null)
 
-  const [formData, setFormData] = useState({
-    booking_date: '',
-    customer_id: '',
-    boat_id: '',
-    service_id: '',
-    service_type: 'rental', // rental o charter
-    supplier_id: '',
-    port_id: '',
-    time_slot_id: '',
-    custom_time: '',
-    booking_status_id: '',
-    num_passengers: '',
-    base_price: '',
-    final_price: '',
-    deposit_amount: '0',
-    balance_amount: '0',
-    security_deposit: '0',
-    payment_method_id: '', // NUOVO
-    notes: ''
-  })
-
-  const [customerFormData, setCustomerFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    document_type: 'Carta Identità',
-    document_number: '',
-    document_expiry: '',
-    has_boat_license: false,
-    boat_license_number: '',
-    boat_license_expiry: '',
-    notes: ''
-  })
-
   useEffect(() => {
-    loadBookings()
-    loadOptions()
+    loadData()
   }, [])
 
-  // Calcola prezzo automatico basato su servizio/barca + data + passeggeri
-  const calculatePrice = (
-    serviceId: string,
-    boatId: string, 
-    date: string, 
-    timeSlotId: string,
-    numPassengers: string,
-    serviceType: string
-  ) => {
-    if (!serviceId || !date || !timeSlotId || !options) return null
-
-    const service = options.services.find(s => s.id === serviceId)
-    if (!service) return null
-
-    // SERVIZI ON-DEMAND - Nessun calcolo automatico (prezzo manuale)
-    if (service.is_on_demand) {
-      return null
-    }
-
-    // TOUR COLLETTIVO - Prezzo per persona
-    if (service.is_collective_tour && service.price_per_person) {
-      const passengers = parseInt(numPassengers) || 1
-      return service.price_per_person * passengers
-    }
-
-    // NOLEGGIO / LOCAZIONE - Prezzo stagionale
-    if (!boatId) return null
-    const boat = options.boats.find(b => b.id === boatId)
-    const timeSlot = options.timeSlots.find(t => t.id === timeSlotId)
-    if (!boat || !timeSlot) return null
-
-    // Usa il service_type dal form (rental o charter)
-    const prefix = serviceType === 'charter' ? 'charter' : 'rental'
-
-    // Verifica che la barca supporti il servizio
-    if (prefix === 'rental' && !boat.has_rental) return null
-    if (prefix === 'charter' && !boat.has_charter) return null
-
-    const bookingDate = new Date(date)
-    const month = bookingDate.getMonth() + 1 // 1-12
-
-    let price = null
-
-    // Determina stagione
-    let season = ''
-    if (month === 4 || month === 5 || month === 10) {
-      season = 'apr_may_oct'
-    } else if (month === 6) {
-      season = 'june'
-    } else if (month === 7 || month === 9) {
-      season = 'july_sept'
-    } else if (month === 8) {
-      season = 'august'
-    } else {
-      // Mesi fuori stagione (Gen, Feb, Mar, Nov, Dic)
-      // Usa prezzi Apr-Mag-Ott come default
-      season = 'apr_may_oct'
-    }
-
-    let duration = ''
-    if (timeSlot.name === 'Mattina' || timeSlot.name === 'Pomeriggio') {
-      duration = 'half_day'
-    } else if (timeSlot.name === 'Full Day') {
-      duration = 'full_day'
-    } else if (timeSlot.name === 'Week') {
-      duration = 'week'
-    }
-
-    // Costruisci nome campo: price_rental_june_half_day
-    const fieldName = `price_${prefix}_${season}_${duration}` as keyof typeof boat
-    price = boat[fieldName] as number | null
-
-    return price
-  }
-
-  // Aggiorna prezzi quando cambiano servizio/barca/data/fascia/passeggeri/tipo
-  useEffect(() => {
-    const price = calculatePrice(
-      formData.service_id,
-      formData.boat_id,
-      formData.booking_date,
-      formData.time_slot_id,
-      formData.num_passengers,
-      formData.service_type
-    )
-    if (price !== null && price !== undefined) {
-      setFormData(prev => ({
-        ...prev,
-        base_price: price.toString(),
-        final_price: price.toString(),
-        balance_amount: (price - parseFloat(prev.deposit_amount || '0')).toFixed(2)
-      }))
-    }
-  }, [formData.service_id, formData.boat_id, formData.booking_date, formData.time_slot_id, formData.num_passengers, formData.service_type])
-
-  const loadBookings = async () => {
+  async function loadData() {
     try {
-      const response = await fetch('/api/bookings')
-      const data = await response.json()
-      // Ordina per data prenotazione (più recente prima)
-      const sortedData = data.sort((a: Booking, b: Booking) => {
-        return new Date(b.booking_date).getTime() - new Date(a.booking_date).getTime()
-      })
-      setBookings(sortedData)
-    } catch (error) {
-      console.error('Errore caricamento prenotazioni:', error)
+      setLoading(true)
+
+      // Carica statistiche
+      const statsRes = await fetch('/api/bookings/stats')
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        setStats(statsData)
+      }
+
+      // Carica prenotazioni
+      const bookingsRes = await fetch('/api/bookings')
+      const bookingsData = await bookingsRes.json()
+
+      setBookings(bookingsData || [])
+    } catch (error: any) {
+      console.error('Errore:', error)
+      toast.error('Errore nel caricamento')
     } finally {
       setLoading(false)
     }
   }
 
-  const loadOptions = async () => {
-    try {
-      const response = await fetch('/api/bookings/options')
-      const data = await response.json()
-      setOptions(data)
-    } catch (error) {
-      console.error('Errore caricamento opzioni:', error)
+  const bookingsFiltrate = bookings.filter(b => {
+    // Filtro stato
+    if (filtroStato !== 'tutti' && b.booking_status?.code !== filtroStato) return false
+    
+    // Filtro metodo pagamento
+    if (filtroMetodo !== 'tutti') {
+      if (filtroMetodo === 'non_impostato' && b.payment_method_id) return false
+      if (filtroMetodo !== 'non_impostato' && b.payment_method?.code !== filtroMetodo) return false
     }
+    
+    // Search
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      const matchCodice = b.booking_number?.toLowerCase().includes(term)
+      const matchCliente = `${b.customer?.first_name} ${b.customer?.last_name}`.toLowerCase().includes(term)
+      const matchEmail = b.customer?.email?.toLowerCase().includes(term)
+      const matchServizio = b.service?.name?.toLowerCase().includes(term)
+      
+      if (!matchCodice && !matchCliente && !matchEmail && !matchServizio) return false
+    }
+    
+    return true
+  })
+
+  function handleEdit(booking: any) {
+    setEditingBooking(booking)
+    setShowModal(true)
   }
 
-  const resetForm = () => {
-    setFormData({
-      booking_date: '',
-      customer_id: '',
-      boat_id: '',
-      service_id: '',
-      service_type: 'rental',
-      supplier_id: '',
-      port_id: '',
-      time_slot_id: '',
-      custom_time: '',
-      booking_status_id: options?.statuses.find(s => s.code === 'pending')?.id || '',
-      num_passengers: '',
-      base_price: '',
-      final_price: '',
-      deposit_amount: '0',
-      balance_amount: '0',
-      security_deposit: '0',
-      payment_method_id: '',
-      notes: ''
-    })
+  function handleCloseModal() {
+    setShowModal(false)
     setEditingBooking(null)
   }
 
-  const resetCustomerForm = () => {
-    setCustomerFormData({
-      first_name: '',
-      last_name: '',
-      email: '',
-      phone: '',
-      document_type: 'Carta Identità',
-      document_number: '',
-      document_expiry: '',
-      has_boat_license: false,
-      boat_license_number: '',
-      boat_license_expiry: '',
-      notes: ''
-    })
+  function handleSave() {
+    loadData()
   }
 
-  const handleNew = () => {
-    resetForm()
-    setDialogOpen(true)
-  }
-
-  const handleEdit = (booking: Booking) => {
-    setEditingBooking(booking)
-    setFormData({
-      booking_date: booking.booking_date,
-      customer_id: booking.customer?.id || '',
-      boat_id: booking.boat?.id || '',
-      service_id: booking.service?.id || '',
-      service_type: (booking as any).service_type || 'rental',
-      supplier_id: booking.supplier?.id ? booking.supplier.id : '',
-      port_id: booking.port?.id || '',
-      time_slot_id: booking.time_slot?.id || '',
-      custom_time: booking.custom_time || '',
-      booking_status_id: booking.booking_status?.id || '',
-      num_passengers: booking.num_passengers?.toString() || '',
-      base_price: booking.base_price?.toString() || '',
-      final_price: booking.final_price.toString(),
-      deposit_amount: booking.deposit_amount.toString(),
-      balance_amount: booking.balance_amount.toString(),
-      security_deposit: booking.security_deposit?.toString() || '0',
-      payment_method_id: (booking as any).payment_method_id ? (booking as any).payment_method_id : '',
-      notes: booking.notes || ''
-    })
-    setDialogOpen(true)
-  }
-
-  const handleCreateCustomer = async () => {
-    if (!customerFormData.first_name || !customerFormData.last_name) {
-      alert('Nome e Cognome sono obbligatori')
-      return
-    }
-
-    try {
-      const payload = {
-        ...customerFormData,
-        document_expiry: customerFormData.document_expiry || null,
-        boat_license_expiry: customerFormData.boat_license_expiry || null
-      }
-
-      const response = await fetch('/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-
-      if (!response.ok) {
-        alert('Errore durante la creazione del cliente')
-        return
-      }
-
-      const newCustomer = await response.json()
-      await loadOptions()
-      setFormData({ ...formData, customer_id: newCustomer.id })
-      setCustomerDialogOpen(false)
-      resetCustomerForm()
-      alert('Cliente creato con successo!')
-    } catch (error) {
-      console.error('Errore creazione cliente:', error)
-      alert('Errore durante la creazione del cliente')
+  const getStatoColor = (code: string) => {
+    switch (code) {
+      case 'confirmed': return 'bg-green-100 text-green-700'
+      case 'pending': return 'bg-yellow-100 text-yellow-700'
+      case 'completed': return 'bg-blue-100 text-blue-700'
+      case 'cancelled': return 'bg-red-100 text-red-700'
+      default: return 'bg-gray-100 text-gray-700'
     }
   }
 
-  const handleSave = async () => {
-    try {
-      const selectedSlot = options?.timeSlots.find(s => s.id === formData.time_slot_id)
-      const isFullDay = selectedSlot?.name === 'Full Day'
-
-      const payload = {
-        customer_id: formData.customer_id,
-        boat_id: formData.boat_id,
-        service_id: formData.service_id,
-        service_type: formData.service_type, // INCLUDI service_type
-        supplier_id: formData.supplier_id || null,
-        port_id: formData.port_id,
-        time_slot_id: formData.time_slot_id,
-        custom_time: formData.custom_time || null,
-        booking_status_id: formData.booking_status_id,
-        booking_date: formData.booking_date,
-        num_passengers: formData.num_passengers ? parseInt(formData.num_passengers) : null,
-        base_price: parseFloat(formData.base_price) || 0,
-        final_price: parseFloat(formData.final_price) || 0,
-        deposit_amount: parseFloat(formData.deposit_amount) || 0,
-        balance_amount: parseFloat(formData.balance_amount) || 0,
-        security_deposit: parseFloat(formData.security_deposit) || 0,
-        payment_method_id: formData.payment_method_id || null,
-        total_paid: 0,
-        notes: formData.notes || null
-      }
-
-      if (editingBooking) {
-        const response = await fetch(`/api/bookings/${editingBooking.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          alert(error.error || 'Errore durante la modifica')
-          return
-        }
-      } else {
-        const requestPayload = {
-          ...payload,
-          _is_full_day: isFullDay
-        }
-
-        const response = await fetch('/api/bookings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestPayload)
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          alert(error.error || 'Errore durante il salvataggio')
-          return
-        }
-      }
-
-      setDialogOpen(false)
-      resetForm()
-      loadBookings()
-    } catch (error) {
-      console.error('Errore salvataggio:', error)
-      alert('Errore durante il salvataggio')
-    }
+  // Calcola incassi per metodo
+  const incassiPerMetodo = {
+    stripe: bookings
+      .filter(b => b.payment_method?.code === 'stripe')
+      .reduce((sum, b) => sum + (b.deposit_amount || 0) + (b.balance_amount || 0), 0),
+    cash: bookings
+      .filter(b => b.payment_method?.code === 'cash')
+      .reduce((sum, b) => sum + (b.deposit_amount || 0) + (b.balance_amount || 0), 0),
+    pos: bookings
+      .filter(b => b.payment_method?.code === 'pos')
+      .reduce((sum, b) => sum + (b.deposit_amount || 0) + (b.balance_amount || 0), 0),
+    bank_transfer: bookings
+      .filter(b => b.payment_method?.code === 'bank_transfer')
+      .reduce((sum, b) => sum + (b.deposit_amount || 0) + (b.balance_amount || 0), 0),
+    nonImpostato: bookings.filter(b => !b.payment_method_id).length
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Sei sicuro di voler eliminare questa prenotazione?')) return
-
-    try {
-      await fetch(`/api/bookings/${id}`, {
-        method: 'DELETE'
-      })
-      loadBookings()
-    } catch (error) {
-      console.error('Errore eliminazione:', error)
-      alert('Errore durante l\'eliminazione')
-    }
-  }
-
-  if (loading || !options) {
-    return <div>Caricamento...</div>
+  if (loading) {
+    return (
+      <div className="p-8">
+        <div className="text-gray-600">Caricamento prenotazioni...</div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-4 md:p-8">
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestione Prenotazioni</h1>
-          <p className="text-gray-600 mt-1">Prenotazioni barche e servizi</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Prenotazioni</h1>
+          <p className="text-gray-600">Gestisci tutte le prenotazioni e i pagamenti</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleNew}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuova Prenotazione
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingBooking ? 'Modifica Prenotazione' : 'Nuova Prenotazione'}
-              </DialogTitle>
-              <DialogDescription>
-                Inserisci i dati della prenotazione
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 py-4">
-              {/* DATA E CLIENTE - Prima sezione */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="booking_date">Data Prenotazione *</Label>
-                  <Input
-                    id="booking_date"
-                    type="date"
-                    value={formData.booking_date}
-                    onChange={(e) => setFormData({ ...formData, booking_date: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="customer_id">Cliente *</Label>
-                  <div className="flex gap-2">
-                    <select
-                      id="customer_id"
-                      value={formData.customer_id}
-                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                      className="flex-1 max-w-[calc(100%-3rem)] px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Seleziona cliente...</option>
-                      {options.customers.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.last_name} {c.first_name}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setCustomerDialogOpen(true)}
-                      title="Crea nuovo cliente"
-                      className="shrink-0"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sezione Servizio */}
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold">Servizio e Imbarcazione</h3>
-                
-                {/* Prima riga: Servizio e N° Passeggeri */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="service_id">Servizio *</Label>
-                    <select
-                      id="service_id"
-                      value={formData.service_id}
-                      onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Seleziona servizio...</option>
-                      {options.services.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="num_passengers">N° Passeggeri</Label>
-                    <Input
-                      id="num_passengers"
-                      type="number"
-                      value={formData.num_passengers}
-                      onChange={(e) => setFormData({ ...formData, num_passengers: e.target.value })}
-                      placeholder="Es. 8"
-                    />
-                  </div>
-                </div>
-
-                {/* Seconda riga: Radio Tipologia */}
-                <div className="space-y-2">
-                  <Label>Tipologia Servizio *</Label>
-                  <div className="flex gap-6">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="service_type_rental"
-                        name="service_type"
-                        value="rental"
-                        checked={formData.service_type === 'rental'}
-                        onChange={(e) => setFormData({ ...formData, service_type: e.target.value, boat_id: '' })}
-                        className="w-4 h-4"
-                      />
-                      <Label htmlFor="service_type_rental" className="cursor-pointer font-normal">
-                        Noleggio
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="service_type_charter"
-                        name="service_type"
-                        value="charter"
-                        checked={formData.service_type === 'charter'}
-                        onChange={(e) => setFormData({ ...formData, service_type: e.target.value, boat_id: '' })}
-                        className="w-4 h-4"
-                      />
-                      <Label htmlFor="service_type_charter" className="cursor-pointer font-normal">
-                        Locazione
-                      </Label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Terza riga: Dropdown Barca */}
-                <div className="space-y-2">
-                  <Label htmlFor="boat_id">Barca *</Label>
-                  <select
-                    id="boat_id"
-                    value={formData.boat_id}
-                    onChange={(e) => setFormData({ ...formData, boat_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="">Seleziona barca...</option>
-                    {options.boats
-                      .filter(b => formData.service_type === 'rental' ? b.has_rental : b.has_charter)
-                      .map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                  </select>
-                  {formData.service_type && options.boats.filter(b => formData.service_type === 'rental' ? b.has_rental : b.has_charter).length === 0 && (
-                    <p className="text-sm text-orange-600">
-                      Nessuna barca disponibile per {formData.service_type === 'rental' ? 'Noleggio' : 'Locazione'}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Sezione Luogo e Orario */}
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Luogo e Orario
-                </h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="port_id">Porto d'Imbarco *</Label>
-                    <select
-                      id="port_id"
-                      value={formData.port_id}
-                      onChange={(e) => setFormData({ ...formData, port_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Seleziona porto...</option>
-                      {options.ports.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="time_slot_id">Fascia Oraria *</Label>
-                    <select
-                      id="time_slot_id"
-                      value={formData.time_slot_id}
-                      onChange={(e) => setFormData({ ...formData, time_slot_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Seleziona fascia...</option>
-                      {options.timeSlots
-                        .filter(t => t.name !== 'Full Day' || !options.timeSlots.some(s => s.name === 'Full Day' && s.id !== t.id))
-                        .map(t => (
-                          <option key={t.id} value={t.id}>
-                            {t.name} ({t.start_time.substring(0, 5)} - {t.end_time.substring(0, 5)})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="custom_time">Orario Personalizzato</Label>
-                    <Input
-                      id="custom_time"
-                      value={formData.custom_time}
-                      onChange={(e) => setFormData({ ...formData, custom_time: e.target.value })}
-                      placeholder="Es. 14:30 - 18:00"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Sezione Prezzi */}
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold">Prezzi e Pagamenti</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="base_price">Listino (€)</Label>
-                    <Input
-                      id="base_price"
-                      type="number"
-                      step="0.01"
-                      value={formData.base_price}
-                      onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
-                      placeholder="500.00"
-                      className="bg-blue-50"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="final_price">Prezzo Finale (€) *</Label>
-                    <Input
-                      id="final_price"
-                      type="number"
-                      step="0.01"
-                      value={formData.final_price}
-                      onChange={(e) => {
-                        const finalPrice = parseFloat(e.target.value) || 0
-                        const deposit = parseFloat(formData.deposit_amount) || 0
-                        const balance = finalPrice - deposit
-                        
-                        setFormData({ 
-                          ...formData, 
-                          final_price: e.target.value,
-                          balance_amount: balance.toFixed(2)
-                        })
-                      }}
-                      placeholder="500.00"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="security_deposit">Cauzione (€)</Label>
-                    <Input
-                      id="security_deposit"
-                      type="number"
-                      step="0.01"
-                      value={formData.security_deposit}
-                      onChange={(e) => setFormData({ ...formData, security_deposit: e.target.value })}
-                      placeholder="200.00"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="deposit_amount">Acconto (€)</Label>
-                    <Input
-                      id="deposit_amount"
-                      type="number"
-                      step="0.01"
-                      value={formData.deposit_amount}
-                      onChange={(e) => {
-                        const deposit = parseFloat(e.target.value) || 0
-                        const finalPrice = parseFloat(formData.final_price) || 0
-                        const balance = finalPrice - deposit
-                        
-                        setFormData({ 
-                          ...formData, 
-                          deposit_amount: e.target.value,
-                          balance_amount: balance.toFixed(2)
-                        })
-                      }}
-                      placeholder="100.00"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="balance_amount">Saldo (€)</Label>
-                    <Input
-                      id="balance_amount"
-                      type="number"
-                      step="0.01"
-                      value={formData.balance_amount}
-                      readOnly
-                      className="bg-gray-50"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="payment_method_id">Metodo Pagamento</Label>
-                    <select
-                      id="payment_method_id"
-                      value={formData.payment_method_id}
-                      onChange={(e) => setFormData({ ...formData, payment_method_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Seleziona metodo...</option>
-                      {options.paymentMethods.map(pm => (
-                        <option key={pm.id} value={pm.id}>{pm.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sezione Stato e Fornitore */}
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold">Stato e Provenienza</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="booking_status_id">Stato Prenotazione *</Label>
-                    <select
-                      id="booking_status_id"
-                      value={formData.booking_status_id}
-                      onChange={(e) => setFormData({ ...formData, booking_status_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Seleziona stato...</option>
-                      {options.statuses.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="supplier_id">Fornitore (Provenienza)</Label>
-                    <select
-                      id="supplier_id"
-                      value={formData.supplier_id}
-                      onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Nessuno</option>
-                      {options.suppliers.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Note */}
-              <div className="space-y-2 pt-4 border-t">
-                <Label htmlFor="notes">Note</Label>
-                <textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
-                  placeholder="Note aggiuntive..."
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Annulla
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={
-                  !formData.customer_id ||
-                  !formData.boat_id ||
-                  !formData.service_id ||
-                  !formData.port_id ||
-                  !formData.time_slot_id ||
-                  !formData.booking_date ||
-                  !formData.booking_status_id ||
-                  !formData.final_price
-                }
-              >
-                {editingBooking ? 'Aggiorna' : 'Crea'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <button
+          onClick={() => {
+            setEditingBooking(null)
+            setShowModal(true)
+          }}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+        >
+          ➕ Nuova Prenotazione
+        </button>
       </div>
 
-      {/* Dialog Crea Cliente COMPLETO */}
-      <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Crea Nuovo Cliente</DialogTitle>
-            <DialogDescription>
-              Inserisci i dati anagrafici del cliente
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6 py-4">
-            {/* Dati Anagrafici */}
-            <div className="space-y-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Dati Anagrafici
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new_first_name">Nome *</Label>
-                  <Input
-                    id="new_first_name"
-                    value={customerFormData.first_name}
-                    onChange={(e) => setCustomerFormData({ ...customerFormData, first_name: e.target.value })}
-                    placeholder="Mario"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="new_last_name">Cognome *</Label>
-                  <Input
-                    id="new_last_name"
-                    value={customerFormData.last_name}
-                    onChange={(e) => setCustomerFormData({ ...customerFormData, last_name: e.target.value })}
-                    placeholder="Rossi"
-                  />
-                </div>
+      {/* Statistiche Ricavi */}
+      {stats && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Statistiche Ricavi</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {/* Ricavi Oggi */}
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">💰</span>
+                <span className="text-xs opacity-80">Oggi</span>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new_email">Email</Label>
-                  <Input
-                    id="new_email"
-                    type="email"
-                    value={customerFormData.email}
-                    onChange={(e) => setCustomerFormData({ ...customerFormData, email: e.target.value })}
-                    placeholder="mario.rossi@email.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="new_phone">Telefono</Label>
-                  <Input
-                    id="new_phone"
-                    value={customerFormData.phone}
-                    onChange={(e) => setCustomerFormData({ ...customerFormData, phone: e.target.value })}
-                    placeholder="+39 333 1234567"
-                  />
-                </div>
+              <div className="text-2xl font-bold">
+                €{(stats.ricavi_oggi || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
               </div>
+              <div className="text-xs opacity-80 mt-1">Ricavi Oggi</div>
             </div>
 
-            {/* Documento */}
-            <div className="space-y-4 pt-4 border-t">
-              <h3 className="font-semibold">Documento di Identità</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new_document_type">Tipo Documento</Label>
-                  <select
-                    id="new_document_type"
-                    value={customerFormData.document_type}
-                    onChange={(e) => setCustomerFormData({ ...customerFormData, document_type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="Carta Identità">Carta d'Identità</option>
-                    <option value="Passaporto">Passaporto</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="new_document_number">Numero Documento</Label>
-                  <Input
-                    id="new_document_number"
-                    value={customerFormData.document_number}
-                    onChange={(e) => setCustomerFormData({ ...customerFormData, document_number: e.target.value })}
-                    placeholder="ES1234567"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="new_document_expiry">Scadenza</Label>
-                  <Input
-                    id="new_document_expiry"
-                    type="date"
-                    value={customerFormData.document_expiry}
-                    onChange={(e) => setCustomerFormData({ ...customerFormData, document_expiry: e.target.value })}
-                  />
-                </div>
+            {/* Ricavi Settimana */}
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">📊</span>
+                <span className="text-xs opacity-80">7 giorni</span>
               </div>
+              <div className="text-2xl font-bold">
+                €{(stats.ricavi_settimana || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="text-xs opacity-80 mt-1">Ricavi Settimana</div>
             </div>
 
-            {/* Patente Nautica */}
-            <div className="space-y-4 pt-4 border-t">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="new_has_boat_license"
-                  checked={customerFormData.has_boat_license}
-                  onChange={(e) => setCustomerFormData({ ...customerFormData, has_boat_license: e.target.checked })}
-                  className="w-4 h-4"
-                />
-                <Label htmlFor="new_has_boat_license" className="font-semibold cursor-pointer">
-                  Possiede Patente Nautica
-                </Label>
+            {/* Ricavi Mese */}
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">📈</span>
+                <span className="text-xs opacity-80">30 giorni</span>
               </div>
-
-              {customerFormData.has_boat_license && (
-                <div className="grid grid-cols-2 gap-4 pl-7">
-                  <div className="space-y-2">
-                    <Label htmlFor="new_boat_license_number">Numero Patente</Label>
-                    <Input
-                      id="new_boat_license_number"
-                      value={customerFormData.boat_license_number}
-                      onChange={(e) => setCustomerFormData({ ...customerFormData, boat_license_number: e.target.value })}
-                      placeholder="PN123456"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="new_boat_license_expiry">Scadenza</Label>
-                    <Input
-                      id="new_boat_license_expiry"
-                      type="date"
-                      value={customerFormData.boat_license_expiry}
-                      onChange={(e) => setCustomerFormData({ ...customerFormData, boat_license_expiry: e.target.value })}
-                    />
-                  </div>
-                </div>
-              )}
+              <div className="text-2xl font-bold">
+                €{(stats.ricavi_mese || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="text-xs opacity-80 mt-1">Ricavi Mese</div>
             </div>
 
-            {/* Note */}
-            <div className="space-y-2 pt-4 border-t">
-              <Label htmlFor="new_notes">Note</Label>
-              <textarea
-                id="new_notes"
-                value={customerFormData.notes}
-                onChange={(e) => setCustomerFormData({ ...customerFormData, notes: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
-                placeholder="Note aggiuntive..."
-              />
+            {/* Totale Incassato */}
+            <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">✅</span>
+                <span className="text-xs opacity-80">Incassato</span>
+              </div>
+              <div className="text-2xl font-bold">
+                €{(stats.totale_incassato || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="text-xs opacity-80 mt-1">Totale Incassato</div>
+            </div>
+
+            {/* Da Incassare */}
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">⏳</span>
+                <span className="text-xs opacity-80">Pending</span>
+              </div>
+              <div className="text-2xl font-bold">
+                €{(stats.totale_da_incassare || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="text-xs opacity-80 mt-1">Da Incassare</div>
+            </div>
+
+            {/* Prenotazioni */}
+            <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">📋</span>
+                <span className="text-xs opacity-80">Totali</span>
+              </div>
+              <div className="text-2xl font-bold">
+                {stats.totale_prenotazioni || 0}
+              </div>
+              <div className="text-xs opacity-80 mt-1">Prenotazioni</div>
             </div>
           </div>
+        </div>
+      )}
 
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setCustomerDialogOpen(false)}>
-              Annulla
-            </Button>
-            <Button
-              onClick={handleCreateCustomer}
-              disabled={!customerFormData.first_name || !customerFormData.last_name}
+      {/* Incassi per Metodo */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Incassi per Metodo</h2>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div className="text-2xl mb-1">💳</div>
+            <div className="text-2xl font-bold text-blue-600">
+              €{incassiPerMetodo.stripe.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-blue-700 mt-1">Stripe</div>
+          </div>
+
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <div className="text-2xl mb-1">💵</div>
+            <div className="text-2xl font-bold text-green-600">
+              €{incassiPerMetodo.cash.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-green-700 mt-1">Contanti</div>
+          </div>
+
+          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+            <div className="text-2xl mb-1">💳</div>
+            <div className="text-2xl font-bold text-purple-600">
+              €{incassiPerMetodo.pos.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-purple-700 mt-1">POS</div>
+          </div>
+
+          <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+            <div className="text-2xl mb-1">🏦</div>
+            <div className="text-2xl font-bold text-orange-600">
+              €{incassiPerMetodo.bank_transfer.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-orange-700 mt-1">Bonifico</div>
+          </div>
+
+          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+            <div className="text-2xl mb-1">⚠️</div>
+            <div className="text-2xl font-bold text-red-600">
+              {incassiPerMetodo.nonImpostato}
+            </div>
+            <div className="text-xs text-red-700 mt-1">Non Impostato</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stato Prenotazioni */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Stato Prenotazioni</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+            <div className="text-3xl font-bold text-yellow-600">
+              {bookings.filter(b => b.booking_status?.code === 'pending').length}
+            </div>
+            <div className="text-sm text-yellow-700 mt-1">In Attesa</div>
+          </div>
+
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <div className="text-3xl font-bold text-green-600">
+              {bookings.filter(b => b.booking_status?.code === 'confirmed').length}
+            </div>
+            <div className="text-sm text-green-700 mt-1">Confermate</div>
+          </div>
+
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div className="text-3xl font-bold text-blue-600">
+              {bookings.filter(b => b.booking_status?.code === 'completed').length}
+            </div>
+            <div className="text-sm text-blue-700 mt-1">Completate</div>
+          </div>
+
+          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+            <div className="text-3xl font-bold text-red-600">
+              {bookings.filter(b => b.booking_status?.code === 'cancelled').length}
+            </div>
+            <div className="text-sm text-red-700 mt-1">Cancellate</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filtri */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Search */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Cerca</label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Codice, cliente, email, servizio..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+
+          {/* Stato */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Stato Prenotazione</label>
+            <select
+              value={filtroStato}
+              onChange={(e) => setFiltroStato(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
-              Crea Cliente
-            </Button>
+              <option value="tutti">Tutte</option>
+              <option value="pending">In Attesa</option>
+              <option value="confirmed">Confermate</option>
+              <option value="completed">Completate</option>
+              <option value="cancelled">Cancellate</option>
+            </select>
           </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Tabella Prenotazioni */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Elenco Prenotazioni ({bookings.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>N° Prenotazione</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Barca</TableHead>
-                <TableHead>Servizio</TableHead>
-                <TableHead>Orario</TableHead>
-                <TableHead>Prezzo</TableHead>
-                <TableHead>Stato</TableHead>
-                <TableHead className="text-right">Azioni</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {bookings.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                    Nessuna prenotazione presente. Clicca "Nuova Prenotazione" per iniziare.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                bookings.map((booking) => (
-                  <TableRow key={booking.id}>
-                    <TableCell className="font-medium">{booking.booking_number}</TableCell>
-                    <TableCell>{new Date(booking.booking_date).toLocaleDateString('it-IT')}</TableCell>
-                    <TableCell>
+          {/* Metodo Pagamento */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Metodo Pagamento</label>
+            <select
+              value={filtroMetodo}
+              onChange={(e) => setFiltroMetodo(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="tutti">Tutti</option>
+              <option value="stripe">💳 Stripe</option>
+              <option value="cash">💵 Contanti</option>
+              <option value="pos">💳 POS</option>
+              <option value="bank_transfer">🏦 Bonifico</option>
+              <option value="non_impostato">⚠️ Non Impostato</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista Prenotazioni */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">DATA</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">CLIENTE</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">SERVIZIO</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">IMPORTO</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">METODO</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">STATO</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">AZIONI</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {bookingsFiltrate.map((booking) => (
+                <tr key={booking.id} className="hover:bg-gray-50">
+                  {/* Data */}
+                  <td className="px-4 py-4">
+                    <div className="font-medium text-gray-900">
+                      {format(new Date(booking.booking_date), 'dd MMM yyyy', { locale: it })}
+                    </div>
+                    {booking.time_slot && (
+                      <div className="text-sm text-gray-500">
+                        {booking.time_slot.start_time} - {booking.time_slot.end_time}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-400 mt-1">
+                      {booking.booking_number}
+                    </div>
+                  </td>
+
+                  {/* Cliente */}
+                  <td className="px-4 py-4">
+                    <div className="font-medium text-gray-900">
+                      {booking.customer?.first_name} {booking.customer?.last_name}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {booking.customer?.email}
+                    </div>
+                    {booking.num_passengers && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        👥 {booking.num_passengers} persone
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Servizio */}
+                  <td className="px-4 py-4">
+                    <div className="font-medium text-gray-900">
+                      {booking.service?.name}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {booking.boat?.name}
+                    </div>
+                    <div className="text-xs text-gray-400 capitalize">
+                      {booking.service_type === 'rental' ? 'Noleggio' : 'Locazione'}
+                    </div>
+                  </td>
+
+                  {/* Importo */}
+                  <td className="px-4 py-4">
+                    <div className="space-y-1">
                       <div className="text-sm">
-                        <div className="font-medium">
-                          {booking.customer.first_name} {booking.customer.last_name}
-                        </div>
-                        <div className="text-gray-500">{booking.customer.phone}</div>
+                        <span className="text-gray-600">Totale: </span>
+                        <span className="font-bold text-gray-900">
+                          €{(booking.final_price || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                        </span>
                       </div>
-                    </TableCell>
-                    <TableCell>{booking.boat.name}</TableCell>
-                    <TableCell>{booking.service.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {booking.custom_time || booking.time_slot.name}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-semibold">€ {booking.final_price.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Badge
-                        style={{
-                          backgroundColor: booking.booking_status.color_code || '#gray',
-                          color: 'white'
-                        }}
+                      <div className="text-xs text-blue-600">
+                        Acconto: €{(booking.deposit_amount || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Saldo: €{(booking.balance_amount || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-xs font-semibold text-red-600">
+                        Da ricevere: €{(
+                          (booking.final_price || 0) - 
+                          (booking.deposit_amount || 0) - 
+                          (booking.balance_amount || 0)
+                        ).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Metodo Pagamento */}
+                  <td className="px-4 py-4">
+                    {booking.payment_method ? (
+                      <div className="text-sm font-semibold">
+                        {booking.payment_method.name}
+                      </div>
+                    ) : (
+                      <div className="text-sm font-semibold text-red-600">
+                        ⚠️ Non impostato
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Stato */}
+                  <td className="px-4 py-4">
+                    <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${getStatoColor(booking.booking_status?.code || '')}`}>
+                      {booking.booking_status?.name || 'N/D'}
+                    </span>
+                  </td>
+
+                  {/* Azioni */}
+                  <td className="px-4 py-4">
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleEdit(booking)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
+                        title="Modifica"
                       >
-                        {booking.booking_status.name}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(booking)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(booking.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        ✏️
+                      </button>
+                      <button 
+                        onClick={() => router.push(`/bookings/${booking.id}`)}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg cursor-pointer transition-colors" 
+                        title="Dettagli"
+                      >
+                        👁️
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {bookingsFiltrate.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <div className="text-4xl mb-3">📋</div>
+              <p>Nessuna prenotazione trovata con i filtri selezionati</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer info */}
+      <div className="mt-6 text-sm text-gray-500 text-center">
+        Visualizzate {bookingsFiltrate.length} di {bookings.length} prenotazioni
+      </div>
+
+      {/* Booking Modal */}
+      <BookingModal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        onSave={handleSave}
+        booking={editingBooking}
+      />
     </div>
   )
 }

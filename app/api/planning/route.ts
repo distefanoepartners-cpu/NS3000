@@ -1,64 +1,254 @@
-import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-client'
+'use client'
 
-// GET - Planning settimanale disponibilità
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
+import { useState, useEffect, useMemo } from 'react'
+import { Calendar, dateFnsLocalizer, View } from 'react-big-calendar'
+import { format, parse, startOfWeek, getDay, addDays, startOfMonth, endOfMonth } from 'date-fns'
+import { it } from 'date-fns/locale'
+import 'react-big-calendar/lib/css/react-big-calendar.css'
+import { toast } from 'sonner'
+import BookingModal from '@/components/BookingModal'
 
-    if (!startDate || !endDate) {
-      return NextResponse.json({ error: 'startDate e endDate richiesti' }, { status: 400 })
+const locales = {
+  'it': it,
+}
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+})
+
+export default function PlanningPage() {
+  const [view, setView] = useState<View>('week')
+  const [date, setDate] = useState(new Date())
+  const [events, setEvents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showBookingModal, setShowBookingModal] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [selectedBooking, setSelectedBooking] = useState<any>(null)
+
+  useEffect(() => {
+    loadBookings()
+  }, [date, view])
+
+  async function loadBookings() {
+    try {
+      setLoading(true)
+      
+      // Calcola range date da caricare
+      const start = view === 'month' 
+        ? startOfMonth(date)
+        : startOfWeek(date, { locale: it })
+      
+      const end = view === 'month'
+        ? endOfMonth(date)
+        : addDays(start, 6)
+
+      const res = await fetch(`/api/bookings?start=${format(start, 'yyyy-MM-dd')}&end=${format(end, 'yyyy-MM-dd')}`)
+      const bookings = await res.json()
+
+      // Converti prenotazioni in eventi per il calendario
+      const calendarEvents = bookings.map((booking: any) => ({
+        id: booking.id,
+        title: `${booking.customer?.first_name} ${booking.customer?.last_name} - ${booking.boat?.name}`,
+        start: new Date(booking.booking_date + 'T' + (booking.time_slot?.start_time || '09:00')),
+        end: new Date(booking.booking_date + 'T' + (booking.time_slot?.end_time || '18:00')),
+        resource: booking, // Dati completi
+        status: booking.booking_status?.code || 'pending'
+      }))
+
+      setEvents(calendarEvents)
+    } catch (error) {
+      console.error('Error loading bookings:', error)
+      toast.error('Errore caricamento prenotazioni')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Gestisci click su slot vuoto
+  function handleSelectSlot({ start }: { start: Date }) {
+    setSelectedDate(start)
+    setSelectedBooking(null)
+    setShowBookingModal(true)
+  }
+
+  // Gestisci click su evento esistente
+  function handleSelectEvent(event: any) {
+    setSelectedBooking(event.resource)
+    setSelectedDate(null)
+    setShowBookingModal(true)
+  }
+
+  // Chiudi modal e ricarica
+  function handleCloseModal() {
+    setShowBookingModal(false)
+    setSelectedDate(null)
+    setSelectedBooking(null)
+  }
+
+  function handleSaveBooking() {
+    loadBookings()
+  }
+
+  // Stile eventi in base allo stato
+  const eventStyleGetter = (event: any) => {
+    let backgroundColor = '#3b82f6' // blue default
+    
+    switch (event.status) {
+      case 'confirmed':
+        backgroundColor = '#10b981' // green
+        break
+      case 'pending':
+        backgroundColor = '#f59e0b' // yellow
+        break
+      case 'completed':
+        backgroundColor = '#6366f1' // indigo
+        break
+      case 'cancelled':
+        backgroundColor = '#ef4444' // red
+        break
     }
 
-    // Ottieni tutte le barche attive
-    const { data: boats, error: boatsError } = await supabaseAdmin
-      .from('boats')
-      .select('id, name, boat_type')
-      .eq('is_active', true)
-      .order('name')
-
-    if (boatsError) throw boatsError
-
-    // Ottieni slot orari
-    const { data: slots, error: slotsError } = await supabaseAdmin
-      .from('time_slots')
-      .select('*')
-      .eq('is_active', true)
-      .order('start_time')
-
-    if (slotsError) throw slotsError
-
-    // Ottieni tutte le prenotazioni nel range con stati che bloccano
-    const { data: bookings, error: bookingsError } = await supabaseAdmin
-      .from('bookings')
-      .select(`
-        *,
-        customer:customers(first_name, last_name),
-        service:services(name),
-        booking_status:booking_statuses(name, code, color_code, blocks_availability)
-      `)
-      .gte('booking_date', startDate)
-      .lte('booking_date', endDate)
-
-    if (bookingsError) throw bookingsError
-
-    // Ottieni indisponibilità barche
-    const { data: unavailability, error: unavailError } = await supabaseAdmin
-      .from('boat_unavailability')
-      .select('*')
-      .or(`and(start_date.lte.${endDate},end_date.gte.${startDate})`)
-
-    if (unavailError) throw unavailError
-
-    return NextResponse.json({
-      boats: boats || [],
-      slots: slots || [],
-      bookings: bookings || [],
-      unavailability: unavailability || []
-    })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return {
+      style: {
+        backgroundColor,
+        borderRadius: '5px',
+        opacity: 0.9,
+        color: 'white',
+        border: '0px',
+        display: 'block',
+        fontSize: view === 'month' ? '11px' : '13px',
+        padding: '2px 5px'
+      }
+    }
   }
+
+  // Messaggi tradotti
+  const messages = {
+    allDay: 'Tutto il giorno',
+    previous: '◀',
+    next: '▶',
+    today: 'Oggi',
+    month: 'Mese',
+    week: 'Settimana',
+    day: 'Giorno',
+    agenda: 'Agenda',
+    date: 'Data',
+    time: 'Ora',
+    event: 'Evento',
+    noEventsInRange: 'Nessuna prenotazione in questo periodo',
+    showMore: (total: number) => `+ ${total} altre`
+  }
+
+  return (
+    <div className="p-4 md:p-8 h-screen flex flex-col">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Planning</h1>
+        <p className="text-gray-600">Gestisci prenotazioni e disponibilità</p>
+      </div>
+
+      {/* Toolbar */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Vista */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Vista:</span>
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setView('week')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  view === 'week' 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📅 Settimana
+              </button>
+              <button
+                onClick={() => setView('month')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  view === 'month' 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📊 Mese
+              </button>
+            </div>
+          </div>
+
+          {/* Legenda Stati */}
+          <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <span className="text-gray-600">In Attesa</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span className="text-gray-600">Confermata</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+              <span className="text-gray-600">Completata</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span className="text-gray-600">Cancellata</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Calendario */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-1 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-gray-600">Caricamento...</div>
+          </div>
+        ) : (
+          <Calendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: '100%' }}
+            view={view}
+            onView={setView}
+            date={date}
+            onNavigate={setDate}
+            selectable
+            onSelectSlot={handleSelectSlot}
+            onSelectEvent={handleSelectEvent}
+            eventPropGetter={eventStyleGetter}
+            messages={messages}
+            culture="it"
+            min={new Date(2024, 0, 1, 8, 0, 0)} // Inizia alle 8:00
+            max={new Date(2024, 0, 1, 20, 0, 0)} // Finisce alle 20:00
+            step={30}
+            timeslots={2}
+            views={['month', 'week', 'day']}
+            popup
+          />
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="mt-4 text-sm text-gray-500 text-center">
+        💡 Clicca su uno slot vuoto per creare una nuova prenotazione • Clicca su un evento per modificarlo
+      </div>
+
+      {/* Booking Modal */}
+      <BookingModal
+        isOpen={showBookingModal}
+        onClose={handleCloseModal}
+        onSave={handleSaveBooking}
+        booking={selectedBooking}
+        preselectedDate={selectedDate || undefined}
+      />
+    </div>
+  )
 }
