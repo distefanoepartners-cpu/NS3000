@@ -97,20 +97,27 @@ export async function PUT(
     // DEBUG: Log del payload processato
     console.log('PUT /api/bookings/[id] - Payload to DB:', JSON.stringify(payload, null, 2))
 
-    // Usa funzione JSON RPC per evitare bug client Supabase con UUID
-    const { error } = await supabaseAdmin.rpc('fix_booking_20241227', {
-      p_booking_id: params.id,
-      p_data: payload
+    // Usa chiamata HTTP diretta invece del client JS (che ha bug)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    
+    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/fix_booking_20241227`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`
+      },
+      body: JSON.stringify({
+        p_booking_id: params.id,
+        p_data: payload
+      })
     })
 
-    if (error) {
-      console.error('Supabase RPC error:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      })
-      throw error
+    if (!response.ok) {
+      const error = await response.json()
+      console.error('Supabase RPC HTTP error:', error)
+      throw new Error(error.message || 'RPC call failed')
     }
     
     return NextResponse.json({ success: true, id: params.id })
