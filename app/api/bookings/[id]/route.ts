@@ -97,19 +97,18 @@ export async function PUT(
     // DEBUG: Log del payload processato
     console.log('PUT /api/bookings/[id] - Payload to DB:', JSON.stringify(payload, null, 2))
 
-    // Usa metodo classico (trigger disabilitato)
-    const { error } = await supabaseAdmin
-      .from('bookings')
-      .update(payload)
-      .eq('id', params.id)
+    // Usa funzione JSON RPC per evitare bug client Supabase con UUID
+    const { error } = await supabaseAdmin.rpc('update_booking_json', {
+      booking_id: params.id,
+      booking_data: payload
+    })
 
     if (error) {
-      console.error('Supabase UPDATE error:', {
+      console.error('Supabase RPC error:', {
         code: error.code,
         message: error.message,
         details: error.details,
-        hint: error.hint,
-        payload: payload
+        hint: error.hint
       })
       throw error
     }
