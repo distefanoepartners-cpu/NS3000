@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from 'date-fns'
+import { format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, addWeeks } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { toast } from 'sonner'
 import BookingModal from '@/components/BookingModal'
 import UnavailabilityModal from '@/components/UnavailabilityModal'
 
 export default function PlanningPage() {
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
   const [date, setDate] = useState(new Date())
   const [boats, setBoats] = useState<any[]>([])
   const [bookings, setBookings] = useState<any[]>([])
@@ -22,19 +23,27 @@ export default function PlanningPage() {
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
   const [selectedUnavailability, setSelectedUnavailability] = useState<any>(null)
 
-  const weekStart = startOfWeek(date, { locale: it, weekStartsOn: 1 })
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  // Calcola i giorni da visualizzare in base alla vista
+  const days = viewMode === 'week'
+    ? eachDayOfInterval({
+        start: startOfWeek(date, { locale: it, weekStartsOn: 1 }),
+        end: endOfWeek(date, { locale: it, weekStartsOn: 1 })
+      })
+    : eachDayOfInterval({
+        start: startOfMonth(date),
+        end: endOfMonth(date)
+      })
 
   useEffect(() => {
     loadData()
-  }, [date])
+  }, [date, viewMode])
 
   async function loadData() {
     try {
       setLoading(true)
 
-      const start = format(weekStart, 'yyyy-MM-dd')
-      const end = format(endOfWeek(date, { locale: it, weekStartsOn: 1 }), 'yyyy-MM-dd')
+      const start = format(days[0], 'yyyy-MM-dd')
+      const end = format(days[days.length - 1], 'yyyy-MM-dd')
 
       // Carica barche
       const boatsRes = await fetch('/api/boats')
@@ -102,6 +111,22 @@ export default function PlanningPage() {
     loadData()
   }
 
+  function navigatePrev() {
+    if (viewMode === 'week') {
+      setDate(addWeeks(date, -1))
+    } else {
+      setDate(addMonths(date, -1))
+    }
+  }
+
+  function navigateNext() {
+    if (viewMode === 'week') {
+      setDate(addWeeks(date, 1))
+    } else {
+      setDate(addMonths(date, 1))
+    }
+  }
+
   const getStatusColor = (code: string) => {
     switch (code) {
       case 'confirmed': return 'bg-green-500'
@@ -125,17 +150,49 @@ export default function PlanningPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Planning Settimanale</h1>
-          <p className="text-gray-600">Vista disponibilità barche</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+            Planning {viewMode === 'week' ? 'Settimanale' : 'Mensile'}
+          </h1>
+          <p className="text-gray-600">
+            {viewMode === 'week' 
+              ? format(days[0], 'dd MMM', { locale: it }) + ' - ' + format(days[6], 'dd MMM yyyy', { locale: it })
+              : format(date, 'MMMM yyyy', { locale: it })
+            }
+          </p>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation + View Toggle */}
         <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('week')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'week'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Settimana
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'month'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Mese
+            </button>
+          </div>
+
+          {/* Navigation */}
           <button
-            onClick={() => setDate(addDays(date, -7))}
+            onClick={navigatePrev}
             className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
-            ◀ Settimana Precedente
+            ◀ Precedente
           </button>
           <button
             onClick={() => setDate(new Date())}
@@ -144,10 +201,10 @@ export default function PlanningPage() {
             Oggi
           </button>
           <button
-            onClick={() => setDate(addDays(date, 7))}
+            onClick={navigateNext}
             className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
-            Settimana Successiva ▶
+            Successiva ▶
           </button>
         </div>
       </div>
@@ -186,15 +243,19 @@ export default function PlanningPage() {
               <th className="border border-gray-200 p-3 text-left font-semibold text-gray-900 bg-gray-100 w-48">
                 Imbarcazione
               </th>
-              {weekDays.map((day) => (
+              {days.map((day) => (
                 <th
                   key={day.toISOString()}
-                  className={`border border-gray-200 p-3 text-center font-semibold min-w-[140px] ${
+                  className={`border border-gray-200 p-2 text-center font-semibold ${
+                    viewMode === 'week' ? 'min-w-[140px]' : 'min-w-[100px]'
+                  } ${
                     isSameDay(day, new Date()) ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
                   }`}
                 >
-                  <div>{format(day, 'EEE', { locale: it })}</div>
-                  <div className="text-lg">{format(day, 'd MMM', { locale: it })}</div>
+                  <div className="text-xs">{format(day, 'EEE', { locale: it })}</div>
+                  <div className={viewMode === 'week' ? 'text-lg' : 'text-base'}>
+                    {format(day, 'd MMM', { locale: it })}
+                  </div>
                 </th>
               ))}
             </tr>
@@ -206,7 +267,7 @@ export default function PlanningPage() {
                   <div className="text-sm font-semibold text-gray-900">{boat.name}</div>
                   <div className="text-xs text-gray-600">{boat.boat_type}</div>
                 </td>
-                {weekDays.map((day) => {
+                {days.map((day) => {
                   const dayStr = format(day, 'yyyy-MM-dd')
                   
                   // Trova prenotazioni per questo giorno e barca
@@ -251,18 +312,22 @@ export default function PlanningPage() {
                               handleBookingClick(booking)
                             }}
                             className={`${getStatusColor(
-                              booking.booking_status?.code || ''
+                              booking.booking_status?.code || 'pending'
                             )} text-white rounded p-1.5 text-xs cursor-pointer hover:opacity-80 shadow-sm`}
                           >
                             <div className="font-semibold">
                               {booking.customer?.first_name} {booking.customer?.last_name}
                             </div>
-                            <div className="opacity-90">
-                              {booking.time_slot?.name || booking.service?.name}
-                            </div>
-                            <div className="opacity-75">
-                              €{(booking.final_price || 0).toFixed(0)}
-                            </div>
+                            {viewMode === 'week' && (
+                              <>
+                                <div className="opacity-90">
+                                  {booking.time_slot?.name || booking.service?.name}
+                                </div>
+                                <div className="opacity-75">
+                                  €{(booking.final_price || 0).toFixed(0)}
+                                </div>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>

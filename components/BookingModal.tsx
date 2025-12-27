@@ -51,6 +51,11 @@ export default function BookingModal({
   const [loadingOptions, setLoadingOptions] = useState(true)
   const [showCreateCustomer, setShowCreateCustomer] = useState(false)
 
+  // Calcolo automatico "Da ricevere"
+  const daRicevere = Math.max(0, 
+    (formData.final_price || 0) - (formData.deposit_amount || 0) - (formData.balance_amount || 0)
+  )
+
   useEffect(() => {
     if (isOpen) {
       loadOptions()
@@ -107,10 +112,9 @@ export default function BookingModal({
 
   // Auto-carica prezzo quando si seleziona una barca
   useEffect(() => {
-    if (formData.boat_id && options.boats.length > 0) {
+    if (formData.boat_id && options.boats.length > 0 && !booking) {
       const selectedBoat = options.boats.find((b: any) => b.id === formData.boat_id)
-      if (selectedBoat && !booking) {
-        // Carica prezzo base dalla barca (esempio: usa rental_price_high_season)
+      if (selectedBoat) {
         const basePrice = selectedBoat.rental_price_high_season || 0
         setFormData(prev => ({
           ...prev,
@@ -322,8 +326,8 @@ export default function BookingModal({
                   </div>
                 </div>
 
-                {/* Stato */}
-                <div className="grid grid-cols-1 gap-3">
+                {/* Stato e Metodo Pagamento - 2 colonne */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Stato Prenotazione</label>
                     <select
@@ -339,59 +343,9 @@ export default function BookingModal({
                       ))}
                     </select>
                   </div>
-                </div>
 
-                {/* Prezzi - Box */}
-                <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                  <h3 className="font-semibold text-gray-900 mb-3 text-sm">💰 Prezzi e Pagamenti</h3>
-                  <div className="grid grid-cols-4 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Prezzo Base</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.base_price}
-                        onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) })}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Prezzo Finale</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.final_price}
-                        onChange={(e) => setFormData({ ...formData, final_price: parseFloat(e.target.value) })}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Acconto</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.deposit_amount}
-                        onChange={(e) => setFormData({ ...formData, deposit_amount: parseFloat(e.target.value) })}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Saldo</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.balance_amount}
-                        onChange={(e) => setFormData({ ...formData, balance_amount: parseFloat(e.target.value) })}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-3">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Metodo Pagamento</label>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Metodo Pagamento</label>
                     <select
                       value={formData.payment_method_id}
                       onChange={(e) => setFormData({ ...formData, payment_method_id: e.target.value })}
@@ -404,6 +358,66 @@ export default function BookingModal({
                         </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+
+                {/* Prezzi - Box */}
+                <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                  <h3 className="font-semibold text-gray-900 mb-3 text-sm">💰 Prezzi e Pagamenti</h3>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Prezzo Base (€)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.base_price}
+                        onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Prezzo Finale (€)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.final_price}
+                        onChange={(e) => setFormData({ ...formData, final_price: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Acconto (€)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.deposit_amount}
+                        onChange={(e) => setFormData({ ...formData, deposit_amount: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Saldo (€)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.balance_amount}
+                        onChange={(e) => setFormData({ ...formData, balance_amount: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Da Ricevere - Display */}
+                  <div className="mt-3 p-2 bg-white rounded border border-gray-300">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700">Da Ricevere:</span>
+                      <span className={`text-lg font-bold ${daRicevere > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        €{daRicevere.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
