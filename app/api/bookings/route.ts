@@ -14,12 +14,12 @@ export async function GET(request: Request) {
       .from('bookings')
       .select(`
         *,
-        customer:customers(id, first_name, last_name, email, phone),
-        boat:boats(id, name, boat_type, rental_price_high_season, rental_price_mid_season, rental_price_low_season, charter_price_high_season, charter_price_mid_season, charter_price_low_season),
-        service:services(id, name, type),
-        time_slot:time_slots(id, name, start_time, end_time),
-        booking_status:booking_statuses(id, name, code),
-        payment_method:payment_methods(id, name, code)
+        customer:customer_id(id, first_name, last_name, email, phone),
+        boat:boat_id(id, name, boat_type, rental_price_high_season, rental_price_mid_season, rental_price_low_season, charter_price_high_season, charter_price_mid_season, charter_price_low_season),
+        service:service_id(id, name, type),
+        time_slot:time_slot_id(id, name, start_time, end_time),
+        booking_status:booking_status_id(id, name, code),
+        payment_method:payment_method_id(id, name, code)
       `)
       .order('booking_date', { ascending: false })
 
