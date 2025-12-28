@@ -164,6 +164,18 @@ export async function DELETE(
   try {
     console.log('[Bookings API] Deleting booking:', params.id)
 
+    // Prima verifica che la prenotazione esista
+    const { data: existing, error: checkError } = await supabaseAdmin
+      .from('bookings')
+      .select('id')
+      .eq('id', params.id)
+      .single()
+
+    if (checkError || !existing) {
+      return NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 })
+    }
+
+    // Elimina la prenotazione
     const { error } = await supabaseAdmin
       .from('bookings')
       .delete()
@@ -171,6 +183,14 @@ export async function DELETE(
 
     if (error) {
       console.error('[Bookings API] Delete error:', error)
+      
+      // Se è un errore di foreign key, dai un messaggio chiaro
+      if (error.code === '23503') {
+        return NextResponse.json({ 
+          error: 'Impossibile eliminare: la prenotazione è referenziata in altre tabelle' 
+        }, { status: 400 })
+      }
+      
       throw error
     }
 
