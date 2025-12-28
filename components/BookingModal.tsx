@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import CreateCustomerModal from './CreateCustomerModal'
 
 interface BookingModalProps {
   isOpen: boolean
@@ -468,97 +469,15 @@ export default function BookingModal({
         </div>
       </div>
 
-      {/* Quick Create Customer Modal */}
-      {showCreateCustomer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Crea Nuovo Cliente</h3>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault()
-                const formData = new FormData(e.currentTarget)
-                
-                try {
-                  const res = await fetch('/api/customers', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      first_name: formData.get('first_name'),
-                      last_name: formData.get('last_name'),
-                      email: formData.get('email'),
-                      phone: formData.get('phone')
-                    })
-                  })
-
-                  if (!res.ok) throw new Error('Errore creazione cliente')
-
-                  const newCustomer = await res.json()
-                  toast.success('Cliente creato!')
-                  
-                  // Ricarica opzioni e seleziona il nuovo cliente
-                  await loadOptions()
-                  setFormData(prev => ({ ...prev, customer_id: newCustomer.id }))
-                  setShowCreateCustomer(false)
-                } catch (error: any) {
-                  toast.error(error.message)
-                }
-              }}
-              className="space-y-3"
-            >
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-                <input
-                  type="text"
-                  name="first_name"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cognome *</label>
-                <input
-                  type="text"
-                  name="last_name"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div className="flex gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateCustomer(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  Crea Cliente
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Create Customer Modal */}
+      <CreateCustomerModal
+        isOpen={showCreateCustomer}
+        onClose={() => setShowCreateCustomer(false)}
+        onCustomerCreated={async (customerId) => {
+          await loadOptions()
+          setFormData(prev => ({ ...prev, customer_id: customerId }))
+        }}
+      />
     </div>
   )
 }
