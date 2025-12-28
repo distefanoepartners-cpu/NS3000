@@ -15,6 +15,8 @@ export default function PrenotazioniPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterPayment, setFilterPayment] = useState('all')
   const [showBookingModal, setShowBookingModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<any>(null)
 
   useEffect(() => {
     loadBookings()
@@ -241,11 +243,20 @@ export default function PrenotazioniPage() {
                       <td className="px-4 py-4">
                         <div className="flex gap-2">
                           <Link
-                            href={`/prenotazioni/${booking.id}`}
+                            href={`/bookings/${booking.id}`}
                             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                           >
                             👁️ Dettagli
                           </Link>
+                          <button
+                            onClick={() => {
+                              setSelectedBooking(booking)
+                              setShowEditModal(true)
+                            }}
+                            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                          >
+                            ✏️ Modifica
+                          </button>
                           <button
                             onClick={() => handleDelete(booking.id)}
                             className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700"
@@ -317,6 +328,20 @@ export default function PrenotazioniPage() {
           loadBookings()
           loadStats()
         }}
+      />
+
+      {/* Modal Modifica Prenotazione */}
+      <BookingModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false)
+          setSelectedBooking(null)
+        }}
+        onSave={() => {
+          loadBookings()
+          loadStats()
+        }}
+        booking={selectedBooking}
       />
     </div>
   )
