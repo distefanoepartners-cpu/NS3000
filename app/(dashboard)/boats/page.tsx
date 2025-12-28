@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 
@@ -84,11 +83,10 @@ export default function BoatsPage() {
               {/* Image */}
               {boat.image_url && (
                 <div className="relative h-40 bg-gray-100">
-                  <Image
+                  <img
                     src={boat.image_url}
                     alt={boat.name}
-                    fill
-                    className="object-cover"
+                    className="w-full h-full object-cover"
                   />
                 </div>
               )}
@@ -179,12 +177,11 @@ export default function BoatsPage() {
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
                         {boat.image_url && (
-                          <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                            <Image
+                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                            <img
                               src={boat.image_url}
                               alt={boat.name}
-                              fill
-                              className="object-cover"
+                              className="w-full h-full object-cover"
                             />
                           </div>
                         )}
