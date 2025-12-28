@@ -4,9 +4,11 @@ import { supabaseAdmin } from '@/lib/supabase-client'
 // GET - Singola prenotazione
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params
+    
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .select('*')
@@ -64,9 +66,10 @@ export async function GET(
 // PUT - Aggiorna prenotazione
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params
     const body = await request.json()
 
     const updateData: any = {
@@ -159,9 +162,10 @@ export async function PUT(
 // DELETE - Elimina prenotazione
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params
     console.log('[Bookings API] Deleting booking:', params.id)
 
     // Prima verifica che la prenotazione esista
