@@ -1,207 +1,461 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
+import { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { uploadImage } from '@/lib/storage'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 
+type Service = {
+  id: string
+  name: string
+  type: string
+  description: string | null
+  base_price: number | null
+  duration_hours: number | null
+  is_active: boolean
+  image_url: string | null
+  price_per_person: number | null
+  is_collective_tour: boolean
+}
+
 export default function ServicesPage() {
-  const [services, setServices] = useState<any[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingService, setEditingService] = useState<Service | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    type: '',
+    description: '',
+    base_price: '',
+    duration_hours: '',
+    is_active: true,
+    is_collective_tour: false,
+    price_per_person: ''
+  })
 
   useEffect(() => {
     loadServices()
   }, [])
 
-  async function loadServices() {
+  const loadServices = async () => {
     try {
-      setLoading(true)
-      const res = await fetch('/api/services')
-      const data = await res.json()
-      setServices(data || [])
+      const response = await fetch('/api/services')
+      const data = await response.json()
+      setServices(data)
     } catch (error) {
-      console.error('Error loading services:', error)
-      toast.error('Errore caricamento servizi')
+      console.error('Errore caricamento servizi:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleDelete(serviceId: string) {
-    if (!confirm('Sei sicuro di voler eliminare questo servizio?')) {
-      return
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      type: '',
+      description: '',
+      base_price: '',
+      duration_hours: '',
+      is_active: true,
+      is_collective_tour: false,
+      price_per_person: ''
+    })
+    setImageFile(null)
+    setImagePreview(null)
+    setEditingService(null)
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setImageFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
     }
+  }
+
+  const handleNew = () => {
+    resetForm()
+    setDialogOpen(true)
+  }
+
+  const handleEdit = (service: Service) => {
+    setEditingService(service)
+    setFormData({
+      name: service.name,
+      type: service.type,
+      description: service.description || '',
+      base_price: service.base_price?.toString() || '',
+      duration_hours: service.duration_hours?.toString() || '',
+      is_active: service.is_active,
+      is_collective_tour: service.is_collective_tour || false,
+      price_per_person: service.price_per_person?.toString() || ''
+    })
+    setImagePreview(null)
+    setDialogOpen(true)
+  }
+
+  const handleSave = async () => {
+    try {
+      let imageUrl = editingService?.image_url || null
+
+      if (imageFile) {
+        const url = await uploadImage(imageFile, 'services')
+        if (url) imageUrl = url
+      }
+
+      const payload = {
+        name: formData.name,
+        type: formData.type,
+        description: formData.description || null,
+        base_price: formData.base_price ? parseFloat(formData.base_price) : null,
+        duration_hours: formData.duration_hours ? parseFloat(formData.duration_hours) : null,
+        is_active: formData.is_active,
+        is_collective_tour: formData.is_collective_tour,
+        price_per_person: formData.price_per_person ? parseFloat(formData.price_per_person) : null,
+        image_url: imageUrl
+      }
+
+      if (editingService) {
+        await fetch(`/api/services/${editingService.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      } else {
+        await fetch('/api/services', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      }
+
+      setDialogOpen(false)
+      resetForm()
+      loadServices()
+    } catch (error) {
+      console.error('Errore salvataggio:', error)
+      alert('Errore durante il salvataggio')
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Sei sicuro di voler eliminare questo servizio?')) return
 
     try {
-      const res = await fetch(`/api/services/${serviceId}`, {
+      await fetch(`/api/services/${id}`, {
         method: 'DELETE'
       })
-
-      if (!res.ok) throw new Error('Errore eliminazione')
-
-      toast.success('Servizio eliminato!')
       loadServices()
-    } catch (error: any) {
-      console.error('Error deleting service:', error)
-      toast.error(error.message)
+    } catch (error) {
+      console.error('Errore eliminazione:', error)
+      alert('Errore durante l\'eliminazione')
     }
   }
 
   if (loading) {
-    return (
-      <div className="p-4 md:p-8">
-        <div className="text-gray-600">Caricamento...</div>
-      </div>
-    )
+    return <div>Caricamento...</div>
   }
 
   return (
-    <div className="p-3 md:p-4 lg:p-8">
-      {/* Header */}
-      <div className="mb-4 md:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 md:mb-2">Servizi</h1>
-          <p className="text-sm md:text-base text-gray-600">Gestisci i servizi offerti</p>
+          <h1 className="text-3xl font-bold">Gestione Servizi</h1>
+          <p className="text-gray-600 mt-1">Servizi e attività disponibili</p>
         </div>
-        <a
-          href="/services/new"
-          className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-sm md:text-base text-center flex items-center justify-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Nuovo Servizio
-        </a>
-      </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNew}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuovo Servizio
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingService ? 'Modifica Servizio' : 'Nuovo Servizio'}
+              </DialogTitle>
+              <DialogDescription>
+                Inserisci i dati del servizio
+              </DialogDescription>
+            </DialogHeader>
 
-      {/* Mobile View - Cards */}
-      <div className="md:hidden space-y-3">
-        {services.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center text-gray-500">
-            Nessun servizio trovato
-          </div>
-        ) : (
-          services.map((service) => (
-            <div key={service.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              {/* Header */}
-              <div className="mb-3">
-                <h3 className="text-lg font-bold text-gray-900">{service.name}</h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                    service.type === 'rental' ? 'bg-blue-100 text-blue-800' :
-                    service.type === 'charter' ? 'bg-purple-100 text-purple-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {service.type === 'rental' ? 'Noleggio' :
-                     service.type === 'charter' ? 'Locazione' :
-                     service.type}
-                  </span>
-                  {service.is_active && (
-                    <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-                      Attivo
-                    </span>
-                  )}
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Es. Tour Capri"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="type">Tipo *</Label>
+                  <Input
+                    id="type"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    placeholder="Es. Tour, Transfer"
+                  />
                 </div>
               </div>
 
-              {/* Description */}
-              {service.description && (
-                <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                  {service.description}
-                </p>
+              {/* Campo Immagine */}
+              <div className="space-y-2">
+                <Label htmlFor="image">Immagine</Label>
+                <Input
+                  id="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                />
+                {imagePreview && (
+                  <div className="mt-2">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      className="w-32 h-32 object-cover rounded border"
+                    />
+                  </div>
+                )}
+                {editingService?.image_url && !imagePreview && (
+                  <div className="mt-2">
+                    <img 
+                      src={editingService.image_url} 
+                      alt="Immagine corrente" 
+                      className="w-32 h-32 object-cover rounded border"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">Immagine corrente</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrizione</Label>
+                <textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[100px]"
+                  placeholder="Descrizione del servizio..."
+                />
+              </div>
+
+              {/* Checkbox Tour Collettivo */}
+              <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="is_collective_tour"
+                  checked={formData.is_collective_tour}
+                  onChange={(e) => setFormData({ ...formData, is_collective_tour: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="is_collective_tour" className="cursor-pointer font-medium">
+                  👥 Tour Collettivo (prezzo a persona)
+                </Label>
+              </div>
+
+              {/* Prezzi - Condizionali */}
+              {formData.is_collective_tour ? (
+                // Tour collettivo - Prezzo per persona
+                <div className="space-y-2">
+                  <Label htmlFor="price_per_person">Prezzo per Persona (€) *</Label>
+                  <Input
+                    id="price_per_person"
+                    type="number"
+                    step="0.01"
+                    value={formData.price_per_person}
+                    onChange={(e) => setFormData({ ...formData, price_per_person: e.target.value })}
+                    placeholder="Es. 85.00"
+                    className="bg-green-50"
+                  />
+                  <p className="text-sm text-gray-500">
+                    Il prezzo finale sarà calcolato: prezzo × n° passeggeri
+                  </p>
+                </div>
+              ) : (
+                // Noleggio barca - Prezzo base e durata
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="base_price">Prezzo Base (€)</Label>
+                    <Input
+                      id="base_price"
+                      type="number"
+                      step="0.01"
+                      value={formData.base_price}
+                      onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
+                      placeholder="Es. 450.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="duration_hours">Durata (ore)</Label>
+                    <Input
+                      id="duration_hours"
+                      type="number"
+                      step="0.5"
+                      value={formData.duration_hours}
+                      onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
+                      placeholder="Es. 4"
+                    />
+                  </div>
+                </div>
               )}
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-3 border-t border-gray-100">
-                <a
-                  href={`/services/${service.id}`}
-                  className="flex-1 px-3 py-2 text-center text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
-                >
-                  <Pencil className="w-4 h-4" />
-                  Modifica
-                </a>
-                <button
-                  onClick={() => handleDelete(service.id)}
-                  className="px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="is_active" className="cursor-pointer">
+                  Servizio Attivo
+                </Label>
               </div>
             </div>
-          ))
-        )}
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Annulla
+              </Button>
+              <Button 
+                onClick={handleSave}
+                disabled={!formData.name || !formData.type}
+              >
+                {editingService ? 'Aggiorna' : 'Crea'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Desktop View - Table */}
-      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Nome</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Tipo</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Descrizione</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Stato</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Azioni</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
+      <Card>
+        <CardHeader>
+          <CardTitle>Elenco Servizi ({services.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Immagine</TableHead>
+                <TableHead>Nome</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Prezzo</TableHead>
+                <TableHead>Durata</TableHead>
+                <TableHead>Modalità</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {services.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                    Nessun servizio trovato
-                  </td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                    Nessun servizio presente. Clicca "Nuovo Servizio" per iniziare.
+                  </TableCell>
+                </TableRow>
               ) : (
                 services.map((service) => (
-                  <tr key={service.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4">
-                      <div className="font-medium text-gray-900">{service.name}</div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        service.type === 'rental' ? 'bg-blue-100 text-blue-800' :
-                        service.type === 'charter' ? 'bg-purple-100 text-purple-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {service.type === 'rental' ? 'Noleggio' :
-                         service.type === 'charter' ? 'Locazione' :
-                         service.type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="text-sm text-gray-600 max-w-md truncate">
-                        {service.description || '-'}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        service.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
+                  <TableRow key={service.id}>
+                    <TableCell>
+                      {service.image_url ? (
+                        <img 
+                          src={service.image_url} 
+                          alt={service.name}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
+                          No img
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">{service.name}</TableCell>
+                    <TableCell>{service.type}</TableCell>
+                    <TableCell>
+                      {service.is_collective_tour && service.price_per_person
+                        ? `€ ${service.price_per_person.toFixed(2)}/pax`
+                        : service.base_price
+                        ? `€ ${service.base_price.toFixed(2)}`
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {service.duration_hours ? `${service.duration_hours}h` : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {service.is_collective_tour ? (
+                        <Badge variant="outline" className="bg-green-50">
+                          👥 Tour Collettivo
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">
+                          🚤 Noleggio
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={service.is_active ? 'default' : 'secondary'}>
                         {service.is_active ? 'Attivo' : 'Inattivo'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex gap-2">
-                        <a
-                          href={`/services/${service.id}`}
-                          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1"
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(service)}
                         >
-                          <Pencil className="w-3 h-3" />
-                          Modifica
-                        </a>
-                        <button
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleDelete(service.id)}
-                          className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700"
                         >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 }
