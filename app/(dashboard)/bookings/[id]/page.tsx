@@ -84,33 +84,33 @@ export default function BookingDetailPage() {
   return (
     <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Link
-              href="/bookings"
-              className="text-blue-600 hover:text-blue-700"
-            >
-              ← Torna alle prenotazioni
-            </Link>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-            {booking.booking_number}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Prenotazione del {format(new Date(booking.booking_date), 'dd MMMM yyyy', { locale: it })}
-          </p>
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <Link
+            href="/bookings"
+            className="text-blue-600 hover:text-blue-700 text-sm md:text-base"
+          >
+            ← Torna alle prenotazioni
+          </Link>
         </div>
-        <div className="flex gap-3">
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
+          {booking.booking_number}
+        </h1>
+        <p className="text-gray-600 mt-1 text-sm md:text-base">
+          Prenotazione del {format(new Date(booking.booking_date), 'dd MMMM yyyy', { locale: it })}
+        </p>
+        
+        {/* Buttons - Stack on mobile */}
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
           <button
             onClick={() => setShowEditModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm md:text-base"
           >
             ✏️ Modifica
           </button>
           <button
             onClick={handleDelete}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm md:text-base"
           >
             🗑️ Elimina
           </button>
@@ -135,9 +135,9 @@ export default function BookingDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Cliente */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">👤 Cliente</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               <div>
                 <div className="text-sm text-gray-600">Nome Completo</div>
                 <div className="text-base font-semibold text-gray-900">
@@ -146,7 +146,7 @@ export default function BookingDetailPage() {
               </div>
               <div>
                 <div className="text-sm text-gray-600">Email</div>
-                <div className="text-base text-gray-900">{booking.customer?.email}</div>
+                <div className="text-base text-gray-900 break-all">{booking.customer?.email}</div>
               </div>
               {booking.customer?.phone && (
                 <div>
@@ -158,9 +158,9 @@ export default function BookingDetailPage() {
           </div>
 
           {/* Servizio e Barca */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">🚤 Servizio e Imbarcazione</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               <div>
                 <div className="text-sm text-gray-600">Servizio</div>
                 <div className="text-base font-semibold text-gray-900">{booking.service?.name}</div>
