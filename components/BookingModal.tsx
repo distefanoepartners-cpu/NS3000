@@ -56,6 +56,16 @@ export default function BookingModal({
     (formData.final_price || 0) - (formData.deposit_amount || 0) - (formData.balance_amount || 0)
   )
 
+  // Auto-calcolo: se final_price è vuoto, usa base_price
+  useEffect(() => {
+    if (!booking && formData.base_price > 0 && formData.final_price === 0) {
+      setFormData(prev => ({
+        ...prev,
+        final_price: prev.base_price
+      }))
+    }
+  }, [formData.base_price, formData.final_price, booking])
+
   useEffect(() => {
     if (isOpen) {
       loadOptions()
