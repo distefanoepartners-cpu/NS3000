@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, addWeeks } from 'date-fns'
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, addWeeks } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { toast } from 'sonner'
 import BookingModal from '@/components/BookingModal'
@@ -23,7 +23,6 @@ export default function PlanningPage() {
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
   const [selectedUnavailability, setSelectedUnavailability] = useState<any>(null)
 
-  // Calcola i giorni da visualizzare in base alla vista
   const days = viewMode === 'week'
     ? eachDayOfInterval({
         start: startOfWeek(date, { locale: it, weekStartsOn: 1 }),
@@ -45,17 +44,17 @@ export default function PlanningPage() {
       const start = format(days[0], 'yyyy-MM-dd')
       const end = format(days[days.length - 1], 'yyyy-MM-dd')
 
-      // Carica barche
-      const boatsRes = await fetch('/api/boats')
-      const boatsData = await boatsRes.json()
+      const [boatsRes, bookingsRes, unavailRes] = await Promise.all([
+        fetch('/api/boats'),
+        fetch(`/api/bookings?start=${start}&end=${end}`),
+        fetch(`/api/unavailabilities?start=${start}&end=${end}`)
+      ])
 
-      // Carica prenotazioni
-      const bookingsRes = await fetch(`/api/bookings?start=${start}&end=${end}`)
-      const bookingsData = await bookingsRes.json()
-
-      // Carica indisponibilità
-      const unavailRes = await fetch(`/api/unavailabilities?start=${start}&end=${end}`)
-      const unavailData = await unavailRes.json()
+      const [boatsData, bookingsData, unavailData] = await Promise.all([
+        boatsRes.json(),
+        bookingsRes.json(),
+        unavailRes.json()
+      ])
 
       setBoats(boatsData || [])
       setBookings(bookingsData || [])
@@ -139,35 +138,33 @@ export default function PlanningPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <div className="text-gray-600">Caricamento...</div>
       </div>
     )
   }
 
   return (
-    <div className="p-4 md:p-8 h-screen flex flex-col">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-            Planning {viewMode === 'week' ? 'Settimanale' : 'Mensile'}
-          </h1>
-          <p className="text-gray-600">
-            {viewMode === 'week' 
-              ? format(days[0], 'dd MMM', { locale: it }) + ' - ' + format(days[6], 'dd MMM yyyy', { locale: it })
-              : format(date, 'MMMM yyyy', { locale: it })
-            }
-          </p>
-        </div>
+    <div className="p-2 md:p-4 lg:p-8 h-screen flex flex-col">
+      {/* Header - Compact on mobile */}
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
+          Planning {viewMode === 'week' ? 'Settimanale' : 'Mensile'}
+        </h1>
+        <p className="text-sm md:text-base text-gray-600 mb-3">
+          {viewMode === 'week' 
+            ? format(days[0], 'dd MMM', { locale: it }) + ' - ' + format(days[6], 'dd MMM yyyy', { locale: it })
+            : format(date, 'MMMM yyyy', { locale: it })
+          }
+        </p>
 
-        {/* Navigation + View Toggle */}
-        <div className="flex items-center gap-3">
+        {/* View Toggle + Navigation - Stack on mobile */}
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center">
           {/* View Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('week')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                 viewMode === 'week'
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -177,7 +174,7 @@ export default function PlanningPage() {
             </button>
             <button
               onClick={() => setViewMode('month')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                 viewMode === 'month'
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -188,161 +185,164 @@ export default function PlanningPage() {
           </div>
 
           {/* Navigation */}
-          <button
-            onClick={navigatePrev}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            ◀ Precedente
-          </button>
-          <button
-            onClick={() => setDate(new Date())}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Oggi
-          </button>
-          <button
-            onClick={navigateNext}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Successiva ▶
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={navigatePrev}
+              className="flex-1 sm:flex-none px-3 md:px-4 py-1.5 md:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs md:text-sm"
+            >
+              ◀ Prec
+            </button>
+            <button
+              onClick={() => setDate(new Date())}
+              className="flex-1 sm:flex-none px-3 md:px-4 py-1.5 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs md:text-sm font-medium"
+            >
+              Oggi
+            </button>
+            <button
+              onClick={navigateNext}
+              className="flex-1 sm:flex-none px-3 md:px-4 py-1.5 md:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs md:text-sm"
+            >
+              Succ ▶
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Legenda */}
-      <div className="mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-        <div className="flex items-center gap-4 text-xs">
+      {/* Legenda - Compact on mobile */}
+      <div className="mb-3 md:mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-2 md:p-3">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs">
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <span>In Attesa</span>
+            <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-yellow-500"></div>
+            <span>Attesa</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-green-500"></div>
             <span>Confermata</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+            <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-blue-500"></div>
             <span>Completata</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-red-500"></div>
             <span>Cancellata</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-gray-400 opacity-50"></div>
-            <span>Indisponibile</span>
+            <div className="w-2 h-2 md:w-3 md:h-3 bg-gray-400 opacity-50"></div>
+            <span>Non disponibile</span>
           </div>
         </div>
       </div>
 
-      {/* Planning Grid */}
-      <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-auto">
-        <table className="w-full border-collapse">
-          <thead className="sticky top-0 bg-gray-50 z-10">
-            <tr>
-              <th className="border border-gray-200 p-3 text-left font-semibold text-gray-900 bg-gray-100 w-48">
-                Imbarcazione
-              </th>
-              {days.map((day) => (
-                <th
-                  key={day.toISOString()}
-                  className={`border border-gray-200 p-2 text-center font-semibold ${
-                    viewMode === 'week' ? 'min-w-[140px]' : 'min-w-[100px]'
-                  } ${
-                    isSameDay(day, new Date()) ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
-                  }`}
-                >
-                  <div className="text-xs">{format(day, 'EEE', { locale: it })}</div>
-                  <div className={viewMode === 'week' ? 'text-lg' : 'text-base'}>
-                    {format(day, 'd MMM', { locale: it })}
-                  </div>
+      {/* Planning Grid - Horizontal scroll on mobile */}
+      <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto overflow-y-auto h-full">
+          <table className="w-full border-collapse min-w-[600px]">
+            <thead className="sticky top-0 bg-gray-50 z-10">
+              <tr>
+                <th className="border border-gray-200 p-2 md:p-3 text-left font-semibold text-gray-900 bg-gray-100 w-20 md:w-32 lg:w-48 text-xs md:text-sm">
+                  Barca
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {boats.map((boat) => (
-              <tr key={boat.id} className="hover:bg-gray-50">
-                <td className="border border-gray-200 p-3 bg-gray-50 font-medium">
-                  <div className="text-sm font-semibold text-gray-900">{boat.name}</div>
-                  <div className="text-xs text-gray-600">{boat.boat_type}</div>
-                </td>
-                {days.map((day) => {
-                  const dayStr = format(day, 'yyyy-MM-dd')
-                  
-                  // Trova prenotazioni per questo giorno e barca
-                  const dayBookings = bookings.filter(
-                    (b) => b.boat_id === boat.id && b.booking_date === dayStr
-                  )
-                  
-                  // Trova indisponibilità per questo giorno e barca
-                  const dayUnavail = unavailabilities.find(
-                    (u) =>
-                      u.boat_id === boat.id &&
-                      dayStr >= u.date_from &&
-                      dayStr <= u.date_to
-                  )
+                {days.map((day) => (
+                  <th
+                    key={day.toISOString()}
+                    className={`border border-gray-200 p-1 md:p-2 text-center font-semibold w-16 md:w-24 lg:w-32 ${
+                      isSameDay(day, new Date()) ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                    }`}
+                  >
+                    <div className="text-xs">{format(day, 'EEE', { locale: it })}</div>
+                    <div className="text-sm md:text-base lg:text-lg">
+                      {format(day, 'd', { locale: it })}
+                    </div>
+                    {viewMode === 'week' && (
+                      <div className="text-xs hidden md:block">{format(day, 'MMM', { locale: it })}</div>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {boats.map((boat) => (
+                <tr key={boat.id} className="hover:bg-gray-50">
+                  <td className="border border-gray-200 p-1 md:p-2 lg:p-3 bg-gray-50 font-medium sticky left-0 z-[5]">
+                    <div className="text-xs md:text-sm font-semibold text-gray-900 truncate">{boat.name}</div>
+                    <div className="text-xs text-gray-600 truncate hidden md:block">{boat.boat_type}</div>
+                  </td>
+                  {days.map((day) => {
+                    const dayStr = format(day, 'yyyy-MM-dd')
+                    
+                    const dayBookings = bookings.filter(
+                      (b) => b.boat_id === boat.id && b.booking_date === dayStr
+                    )
+                    
+                    const dayUnavail = unavailabilities.find(
+                      (u) =>
+                        u.boat_id === boat.id &&
+                        dayStr >= u.date_from &&
+                        dayStr <= u.date_to
+                    )
 
-                  return (
-                    <td
-                      key={day.toISOString()}
-                      className="border border-gray-200 p-1 align-top cursor-pointer hover:bg-blue-50 transition-colors"
-                      onClick={(e) => handleCellClick(boat, day, e)}
-                    >
-                      <div className="space-y-1">
-                        {/* Indisponibilità */}
-                        {dayUnavail && (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleUnavailabilityClick(dayUnavail)
-                            }}
-                            className="bg-gray-400 bg-opacity-30 rounded p-1.5 text-xs cursor-pointer hover:bg-opacity-50 border border-dashed border-gray-500"
-                          >
-                            🚫 {dayUnavail.reason || 'Indisponibile'}
-                          </div>
-                        )}
-                        
-                        {/* Prenotazioni */}
-                        {dayBookings.map((booking) => (
-                          <div
-                            key={booking.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleBookingClick(booking)
-                            }}
-                            className={`${getStatusColor(
-                              booking.booking_status?.code || 'pending'
-                            )} text-white rounded p-1.5 text-xs cursor-pointer hover:opacity-80 shadow-sm`}
-                          >
-                            <div className="font-semibold">
-                              {booking.customer?.first_name} {booking.customer?.last_name}
+                    return (
+                      <td
+                        key={day.toISOString()}
+                        className="border border-gray-200 p-0.5 md:p-1 align-top cursor-pointer hover:bg-blue-50 transition-colors"
+                        onClick={(e) => handleCellClick(boat, day, e)}
+                      >
+                        <div className="space-y-0.5 md:space-y-1">
+                          {/* Indisponibilità */}
+                          {dayUnavail && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleUnavailabilityClick(dayUnavail)
+                              }}
+                              className="bg-gray-400 bg-opacity-30 rounded p-0.5 md:p-1 text-xs cursor-pointer hover:bg-opacity-50 border border-dashed border-gray-500"
+                              title={dayUnavail.reason || 'Indisponibile'}
+                            >
+                              🚫
                             </div>
-                            {viewMode === 'week' && (
-                              <>
-                                <div className="opacity-90">
-                                  {booking.time_slot?.name || booking.service?.name}
-                                </div>
-                                <div className="opacity-75">
+                          )}
+                          
+                          {/* Prenotazioni - Compact on mobile */}
+                          {dayBookings.map((booking) => (
+                            <div
+                              key={booking.id}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleBookingClick(booking)
+                              }}
+                              className={`${getStatusColor(
+                                booking.booking_status?.code || 'pending'
+                              )} text-white rounded p-0.5 md:p-1 text-xs cursor-pointer hover:opacity-80 shadow-sm`}
+                              title={`${booking.customer?.first_name} ${booking.customer?.last_name} - €${booking.final_price}`}
+                            >
+                              <div className="font-semibold truncate hidden md:block">
+                                {booking.customer?.first_name} {booking.customer?.last_name}
+                              </div>
+                              <div className="font-semibold truncate md:hidden">
+                                {booking.customer?.first_name?.charAt(0)}.{booking.customer?.last_name?.charAt(0)}.
+                              </div>
+                              {viewMode === 'week' && (
+                                <div className="opacity-75 truncate hidden lg:block">
                                   €{(booking.final_price || 0).toFixed(0)}
                                 </div>
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Info */}
-      <div className="mt-4 text-sm text-gray-500 text-center">
-        💡 Clicca su una cella per creare prenotazione o indisponibilità • Clicca su un evento per modificarlo
+      {/* Info - Compact on mobile */}
+      <div className="mt-2 md:mt-4 text-xs md:text-sm text-gray-500 text-center">
+        💡 Tocca una cella per creare prenotazione/indisponibilità • Tocca un evento per modificarlo
       </div>
 
       {/* Slot Menu */}
@@ -350,17 +350,17 @@ export default function PlanningPage() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setShowSlotMenu(false)} />
           <div
-            className="fixed z-50 bg-white rounded-lg shadow-xl border-2 border-gray-200 py-2 min-w-[200px]"
+            className="fixed z-50 bg-white rounded-lg shadow-xl border-2 border-gray-200 py-2 min-w-[180px] md:min-w-[200px]"
             style={{ top: `${menuPosition.y}px`, left: `${menuPosition.x}px` }}
           >
             <button
               onClick={openBookingModal}
-              className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center gap-3 transition-colors"
+              className="w-full px-3 md:px-4 py-2 md:py-3 text-left hover:bg-blue-50 flex items-center gap-2 md:gap-3 transition-colors"
             >
-              <span className="text-2xl">📅</span>
+              <span className="text-xl md:text-2xl">📅</span>
               <div>
-                <div className="font-semibold text-gray-900">Nuova Prenotazione</div>
-                <div className="text-xs text-gray-500">
+                <div className="font-semibold text-gray-900 text-sm md:text-base">Nuova Prenotazione</div>
+                <div className="text-xs text-gray-500 truncate">
                   {selectedBoat?.name} - {selectedDate && format(selectedDate, 'd MMM', { locale: it })}
                 </div>
               </div>
@@ -368,12 +368,12 @@ export default function PlanningPage() {
             <div className="border-t border-gray-200 my-1"></div>
             <button
               onClick={openUnavailabilityModal}
-              className="w-full px-4 py-3 text-left hover:bg-red-50 flex items-center gap-3 transition-colors"
+              className="w-full px-3 md:px-4 py-2 md:py-3 text-left hover:bg-red-50 flex items-center gap-2 md:gap-3 transition-colors"
             >
-              <span className="text-2xl">🚫</span>
+              <span className="text-xl md:text-2xl">🚫</span>
               <div>
-                <div className="font-semibold text-gray-900">Indisponibilità</div>
-                <div className="text-xs text-gray-500">Blocca {selectedBoat?.name}</div>
+                <div className="font-semibold text-gray-900 text-sm md:text-base">Indisponibilità</div>
+                <div className="text-xs text-gray-500 truncate">Blocca {selectedBoat?.name}</div>
               </div>
             </button>
           </div>
