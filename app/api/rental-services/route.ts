@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-client'
 
-// GET - Lista tutti i servizi noleggio
+// GET - Lista tutti i servizi
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
@@ -9,14 +9,10 @@ export async function GET() {
       .select('*')
       .order('name')
 
-    if (error) {
-      console.error('[Rental Services API] GET error:', error)
-      throw error
-    }
-
+    if (error) throw error
     return NextResponse.json(data || [])
   } catch (error: any) {
-    console.error('[Rental Services API] Error fetching services:', error)
+    console.error('Error fetching services:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -32,14 +28,10 @@ export async function POST(request: Request) {
       .select('*')
       .single()
 
-    if (error) {
-      console.error('[Rental Services API] POST error:', error)
-      throw error
-    }
-
+    if (error) throw error
     return NextResponse.json(data)
   } catch (error: any) {
-    console.error('[Rental Services API] Error creating service:', error)
+    console.error('Error creating service:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

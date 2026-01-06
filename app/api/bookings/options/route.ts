@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     ] = await Promise.all([
       supabaseAdmin.from('customers').select('*').order('last_name'),
       supabaseAdmin.from('boats').select('*').order('name'),
-      supabaseAdmin.from('services').select('*').order('name'),
+      supabaseAdmin.from('rental_services').select('*').order('name'), // 🆕 CAMBIATO
       supabaseAdmin.from('time_slots').select('*').order('start_time'),
       supabaseAdmin.from('payment_methods').select('*').order('name'),
       supabaseAdmin.from('booking_statuses').select('*').order('name')
@@ -41,4 +41,4 @@ export async function GET(request: Request) {
       bookingStatuses: []
     })
   }
-}
+} 
