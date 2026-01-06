@@ -138,7 +138,20 @@ export default function BoatsPage() {
       const servicesRes = await fetch('/api/rental-services')
       const servicesData = await servicesRes.json()
 
-      setBoats(boatsData || [])
+      // Load boat services for each boat
+      const boatsWithServices = await Promise.all(
+        (boatsData || []).map(async (boat: Boat) => {
+          try {
+            const res = await fetch(`/api/boats/${boat.id}/services`)
+            const services = await res.json()
+            return { ...boat, rental_services: services || [] }
+          } catch {
+            return { ...boat, rental_services: [] }
+          }
+        })
+      )
+
+      setBoats(boatsWithServices)
       setRentalServices(servicesData || [])
     } catch (error) {
       console.error('Error loading data:', error)
