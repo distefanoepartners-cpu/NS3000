@@ -165,7 +165,7 @@ export default function BookingModal({
     }
   }, [formData.boat_id, formData.service_type, options.rentalServices])
 
-  // 🆕 CALCOLO AUTOMATICO PREZZO quando cambiano: barca, servizio, data
+  // 🆕 CALCOLO AUTOMATICO PREZZO quando cambiano: barca, servizio, data, passeggeri
   useEffect(() => {
     async function calculatePrice() {
       // Solo per noleggio e se tutti i dati sono presenti
@@ -188,7 +188,8 @@ export default function BookingModal({
           body: JSON.stringify({
             boat_id: formData.boat_id,
             service_id: formData.service_id,
-            booking_date: formData.booking_date
+            booking_date: formData.booking_date,
+            num_passengers: formData.num_passengers
           })
         })
 
@@ -213,7 +214,7 @@ export default function BookingModal({
     }
 
     calculatePrice()
-  }, [formData.boat_id, formData.service_id, formData.booking_date, formData.service_type, booking])
+  }, [formData.boat_id, formData.service_id, formData.booking_date, formData.num_passengers, formData.service_type, booking])
 
   // Auto-carica prezzo quando si seleziona una barca (per Locazione)
   useEffect(() => {

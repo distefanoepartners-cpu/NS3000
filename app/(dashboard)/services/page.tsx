@@ -42,8 +42,13 @@ export default function ServicesPage() {
     description: '',
     service_type: 'tour' as 'tour' | 'collective' | 'charter' | 'transfer',
     duration: 'full_day' as 'half_day' | 'full_day' | 'week' | 'custom',
+    price_per_person: '',
+    image_url: '',
     is_active: true
   })
+
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   useEffect(() => {
     loadServices()
@@ -91,8 +96,12 @@ export default function ServicesPage() {
       description: '',
       service_type: 'tour',
       duration: 'full_day',
+      price_per_person: '',
+      image_url: '',
       is_active: true
     })
+    setImageFile(null)
+    setImagePreview(null)
     setEditingService(null)
   }
 
@@ -108,18 +117,63 @@ export default function ServicesPage() {
       description: service.description || '',
       service_type: service.service_type,
       duration: service.duration || 'full_day',
+      price_per_person: (service as any).price_per_person?.toString() || '',
+      image_url: (service as any).image_url || '',
       is_active: service.is_active
     })
+    setImageFile(null)
+    setImagePreview((service as any).image_url || null)
     setDialogOpen(true)
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Il file deve essere un\'immagine')
+        return
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Immagine troppo grande (max 5MB)')
+        return
+      }
+      setImageFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
   const handleSave = async () => {
     try {
+      let imageUrl = formData.image_url
+
+      // Upload immagine se presente
+      if (imageFile) {
+        const formData = new FormData()
+        formData.append('file', imageFile)
+        formData.append('bucket', 'services')
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        })
+
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json()
+          imageUrl = uploadData.url
+        }
+      }
+
       const payload = {
         name: formData.name,
         description: formData.description || null,
         service_type: formData.service_type,
         duration: formData.duration,
+        price_per_person: formData.price_per_person ? parseFloat(formData.price_per_person) : null,
+        image_url: imageUrl || null,
         is_active: formData.is_active
       }
 
@@ -229,6 +283,46 @@ export default function ServicesPage() {
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {/* Immagine */}
+              <div className="space-y-2">
+                <Label htmlFor="image">Immagine Servizio</Label>
+                {imagePreview ? (
+                  <div className="relative">
+                    <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null)
+                        setImagePreview(null)
+                        setFormData({ ...formData, image_url: '' })
+                      }}
+                      className="absolute top-2 right-2 px-3 py-1 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+                    >
+                      Rimuovi
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label htmlFor="image-upload" className="cursor-pointer">
+                      <div className="text-gray-600">
+                        <span className="text-4xl mb-2 block">📷</span>
+                        <span className="text-sm">Click per caricare immagine</span>
+                        <span className="text-xs text-gray-500 block mt-1">
+                          JPG, PNG, WebP (max 5MB)
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">Nome Servizio *</Label>
                 <Input
@@ -281,6 +375,24 @@ export default function ServicesPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Prezzo per persona (solo per collettivi) */}
+              {formData.service_type === 'collective' && (
+                <div className="space-y-2 bg-purple-50 p-4 rounded-lg border border-purple-200">
+                  <Label htmlFor="price_per_person">Prezzo per Persona (€) *</Label>
+                  <Input
+                    id="price_per_person"
+                    type="number"
+                    step="0.01"
+                    value={formData.price_per_person}
+                    onChange={(e) => setFormData({ ...formData, price_per_person: e.target.value })}
+                    placeholder="150.00"
+                  />
+                  <p className="text-xs text-purple-700">
+                    💡 Il prezzo totale sarà calcolato: prezzo × numero passeggeri
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center gap-3 pt-4 border-t">
                 <input
@@ -407,13 +519,23 @@ export default function ServicesPage() {
         ) : (
           filteredServices.map((service) => (
             <div key={service.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-              {/* Header with icon */}
-              <div className={`h-32 ${getTypeColor(service.service_type)} bg-opacity-20 flex items-center justify-center`}>
-                {service.service_type === 'tour' && <Ship className="w-16 h-16 text-blue-600" />}
-                {service.service_type === 'collective' && <Users className="w-16 h-16 text-purple-600" />}
-                {service.service_type === 'charter' && <Ship className="w-16 h-16 text-green-600" />}
-                {service.service_type === 'transfer' && <Clock className="w-16 h-16 text-amber-600" />}
-              </div>
+              {/* Image or Icon Header */}
+              {(service as any).image_url ? (
+                <div className="relative h-48">
+                  <img 
+                    src={(service as any).image_url} 
+                    alt={service.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className={`h-32 ${getTypeColor(service.service_type)} bg-opacity-20 flex items-center justify-center`}>
+                  {service.service_type === 'tour' && <Ship className="w-16 h-16 text-blue-600" />}
+                  {service.service_type === 'collective' && <Users className="w-16 h-16 text-purple-600" />}
+                  {service.service_type === 'charter' && <Ship className="w-16 h-16 text-green-600" />}
+                  {service.service_type === 'transfer' && <Clock className="w-16 h-16 text-amber-600" />}
+                </div>
+              )}
 
               {/* Content */}
               <div className="p-5">
@@ -436,6 +558,18 @@ export default function ServicesPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Price per person (for collective) */}
+                {service.service_type === 'collective' && (service as any).price_per_person && (
+                  <div className="bg-purple-50 rounded-lg p-3 mb-3 border border-purple-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-purple-900 font-medium">Prezzo per Persona:</span>
+                      <span className="text-lg font-bold text-purple-600">
+                        €{(service as any).price_per_person}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {service.duration && (
                   <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
