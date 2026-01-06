@@ -43,6 +43,7 @@ export default function BookingModal({
     customers: [],
     boats: [],
     services: [],
+    rentalServices: [], // Servizi noleggio
     timeSlots: [],
     paymentMethods: [],
     bookingStatuses: []
@@ -51,6 +52,8 @@ export default function BookingModal({
   const [loading, setLoading] = useState(false)
   const [loadingOptions, setLoadingOptions] = useState(true)
   const [showCreateCustomer, setShowCreateCustomer] = useState(false)
+  const [calculatingPrice, setCalculatingPrice] = useState(false)
+  const [availableServices, setAvailableServices] = useState<any[]>([]) // Servizi filtrati per barca
 
   // Calcolo automatico "Da ricevere"
   const daRicevere = Math.max(0, 
@@ -105,10 +108,15 @@ export default function BookingModal({
       const res = await fetch('/api/bookings/options')
       const data = await res.json()
       
+      // Carica anche servizi noleggio
+      const rentalRes = await fetch('/api/rental-services')
+      const rentalData = await rentalRes.json()
+      
       setOptions({
         customers: data.customers || [],
         boats: data.boats || [],
         services: data.services || [],
+        rentalServices: rentalData || [],
         timeSlots: data.timeSlots || [],
         paymentMethods: data.paymentMethods || [],
         bookingStatuses: data.bookingStatuses || []
@@ -121,9 +129,95 @@ export default function BookingModal({
     }
   }
 
-  // Auto-carica prezzo quando si seleziona una barca
+  // 🆕 Carica servizi disponibili per la barca selezionata
   useEffect(() => {
-    if (formData.boat_id && options.boats.length > 0 && !booking) {
+    async function loadBoatServices() {
+      if (!formData.boat_id) {
+        setAvailableServices([])
+        return
+      }
+
+      try {
+        const res = await fetch(`/api/boats/${formData.boat_id}/services`)
+        const data = await res.json()
+        
+        // Combina con info servizio
+        const servicesWithInfo = data.map((bs: any) => {
+          const serviceInfo = options.rentalServices.find((s: any) => s.id === bs.service_id)
+          return {
+            ...bs,
+            name: serviceInfo?.name || 'Servizio',
+            description: serviceInfo?.description
+          }
+        })
+        
+        setAvailableServices(servicesWithInfo)
+      } catch (error) {
+        console.error('Error loading boat services:', error)
+        setAvailableServices([])
+      }
+    }
+
+    if (formData.service_type === 'rental' && formData.boat_id) {
+      loadBoatServices()
+    } else {
+      setAvailableServices([])
+    }
+  }, [formData.boat_id, formData.service_type, options.rentalServices])
+
+  // 🆕 CALCOLO AUTOMATICO PREZZO quando cambiano: barca, servizio, data
+  useEffect(() => {
+    async function calculatePrice() {
+      // Solo per noleggio e se tutti i dati sono presenti
+      if (
+        formData.service_type !== 'rental' ||
+        !formData.boat_id || 
+        !formData.service_id || 
+        !formData.booking_date ||
+        booking // Non ricalcolare in modifica
+      ) {
+        return
+      }
+
+      try {
+        setCalculatingPrice(true)
+        
+        const res = await fetch('/api/bookings/calculate-price', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            boat_id: formData.boat_id,
+            service_id: formData.service_id,
+            booking_date: formData.booking_date
+          })
+        })
+
+        const data = await res.json()
+        
+        if (data.price) {
+          setFormData(prev => ({
+            ...prev,
+            base_price: data.price,
+            final_price: data.price
+          }))
+          toast.success(`Prezzo calcolato: €${data.price}`)
+        } else {
+          toast.error('Prezzo non disponibile per questa stagione')
+        }
+      } catch (error) {
+        console.error('Error calculating price:', error)
+        toast.error('Errore calcolo prezzo')
+      } finally {
+        setCalculatingPrice(false)
+      }
+    }
+
+    calculatePrice()
+  }, [formData.boat_id, formData.service_id, formData.booking_date, formData.service_type, booking])
+
+  // Auto-carica prezzo quando si seleziona una barca (per Locazione)
+  useEffect(() => {
+    if (formData.service_type === 'charter' && formData.boat_id && options.boats.length > 0 && !booking) {
       const selectedBoat = options.boats.find((b: any) => b.id === formData.boat_id)
       if (selectedBoat) {
         const basePrice = selectedBoat.rental_price_high_season || 0
@@ -134,7 +228,7 @@ export default function BookingModal({
         }))
       }
     }
-  }, [formData.boat_id, options.boats, booking])
+  }, [formData.boat_id, formData.service_type, options.boats, booking])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -178,7 +272,7 @@ export default function BookingModal({
 
       toast.success(booking ? 'Prenotazione aggiornata!' : 'Prenotazione creata!')
       onSave()
-      onClose() // Chiudi il modal
+      onClose()
     } catch (error: any) {
       console.error('Error saving booking:', error)
       toast.error(error.message || 'Errore nel salvataggio')
@@ -192,7 +286,7 @@ export default function BookingModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4">
       <div className="bg-white rounded-xl w-full max-w-5xl max-h-[95vh] flex flex-col mx-2 md:mx-0">
-        {/* Header - Fixed */}
+        {/* Header */}
         <div className="p-3 md:p-4 border-b flex items-center justify-between bg-white rounded-t-xl flex-shrink-0">
           <div>
             <h2 className="text-lg md:text-xl font-bold text-gray-900">
@@ -210,14 +304,14 @@ export default function BookingModal({
           </button>
         </div>
 
-        {/* Form - Scrollable */}
+        {/* Form */}
         <div className="overflow-y-auto flex-1">
           <form id="booking-form" onSubmit={handleSubmit} className="p-3 md:p-4">
             {loadingOptions ? (
               <div className="text-center py-8 text-gray-600">Caricamento...</div>
             ) : (
               <div className="space-y-3 md:space-y-4">
-                {/* Cliente e Barca - Stack on mobile, 2 cols on desktop */}
+                {/* Cliente e Barca */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
@@ -239,7 +333,6 @@ export default function BookingModal({
                         type="button"
                         onClick={() => setShowCreateCustomer(true)}
                         className="px-2 md:px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium whitespace-nowrap"
-                        title="Crea nuovo cliente"
                       >
                         ➕
                       </button>
@@ -250,7 +343,9 @@ export default function BookingModal({
                     <label className="block text-sm font-medium text-gray-700 mb-1">Barca *</label>
                     <select
                       value={formData.boat_id}
-                      onChange={(e) => setFormData({ ...formData, boat_id: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, boat_id: e.target.value, service_id: '' })
+                      }}
                       className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                       required
                     >
@@ -264,39 +359,62 @@ export default function BookingModal({
                   </div>
                 </div>
 
-                {/* Servizio e Tipo */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Servizio *</label>
-                    <select
-                      value={formData.service_id}
-                      onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
-                      className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      required
-                    >
-                      <option value="">Seleziona...</option>
-                      {options.services.map((s: any) => (
+                {/* Tipo Servizio */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Servizio</label>
+                  <select
+                    value={formData.service_type}
+                    onChange={(e) => setFormData({ ...formData, service_type: e.target.value, service_id: '' })}
+                    className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  >
+                    <option value="rental">Noleggio (con servizio)</option>
+                    <option value="charter">Locazione</option>
+                  </select>
+                </div>
+
+                {/* Servizio - Dinamico in base al tipo */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Servizio * 
+                    {calculatingPrice && <span className="ml-2 text-xs text-blue-600">🔄 Calcolo prezzo...</span>}
+                  </label>
+                  <select
+                    value={formData.service_id}
+                    onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
+                    className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    required
+                    disabled={formData.service_type === 'rental' && !formData.boat_id}
+                  >
+                    <option value="">
+                      {formData.service_type === 'rental' 
+                        ? (formData.boat_id ? 'Seleziona servizio...' : 'Prima seleziona una barca')
+                        : 'Seleziona...'}
+                    </option>
+                    
+                    {formData.service_type === 'rental' ? (
+                      // Servizi noleggio (filtrati per barca)
+                      availableServices.map((s: any) => (
+                        <option key={s.service_id} value={s.service_id}>
+                          {s.name}
+                        </option>
+                      ))
+                    ) : (
+                      // Servizi locazione (tutti)
+                      options.services.map((s: any) => (
                         <option key={s.id} value={s.id}>
                           {s.name}
                         </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Servizio</label>
-                    <select
-                      value={formData.service_type}
-                      onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
-                      className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    >
-                      <option value="rental">Noleggio</option>
-                      <option value="charter">Locazione</option>
-                    </select>
-                  </div>
+                      ))
+                    )}
+                  </select>
+                  {formData.service_type === 'rental' && availableServices.length === 0 && formData.boat_id && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Nessun servizio noleggio configurato per questa barca
+                    </p>
+                  )}
                 </div>
 
-                {/* Data, Orario, Passeggeri - Stack on mobile */}
+                {/* Data, Orario, Passeggeri */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Data *</label>
@@ -372,9 +490,16 @@ export default function BookingModal({
                   </div>
                 </div>
 
-                {/* Prezzi - Stack on mobile, 2x2 grid on tablet, 4 cols on desktop */}
+                {/* Prezzi */}
                 <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                  <h3 className="font-semibold text-gray-900 mb-3 text-sm">💰 Prezzi e Pagamenti</h3>
+                  <h3 className="font-semibold text-gray-900 mb-3 text-sm">
+                    💰 Prezzi e Pagamenti
+                    {formData.service_type === 'rental' && (
+                      <span className="ml-2 text-xs font-normal text-blue-700">
+                        (Prezzo calcolato automaticamente)
+                      </span>
+                    )}
+                  </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Prezzo Base (€)</label>
@@ -384,6 +509,7 @@ export default function BookingModal({
                         value={formData.base_price}
                         onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 })}
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                        disabled={calculatingPrice}
                       />
                     </div>
 
@@ -421,7 +547,7 @@ export default function BookingModal({
                     </div>
                   </div>
 
-                  {/* Da Ricevere - Display */}
+                  {/* Da Ricevere */}
                   <div className="mt-3 p-2 bg-white rounded border border-gray-300">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-700">Da Ricevere:</span>
@@ -448,7 +574,7 @@ export default function BookingModal({
           </form>
         </div>
 
-        {/* Footer - Fixed */}
+        {/* Footer */}
         <div className="flex gap-2 md:gap-3 p-3 md:p-4 border-t bg-gray-50 rounded-b-xl flex-shrink-0">
           <button
             type="button"
@@ -462,7 +588,7 @@ export default function BookingModal({
             type="submit"
             form="booking-form"
             className="flex-1 px-3 md:px-4 py-2 md:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm md:text-base"
-            disabled={loading || loadingOptions}
+            disabled={loading || loadingOptions || calculatingPrice}
           >
             {loading ? 'Salvataggio...' : (booking ? 'Aggiorna' : 'Crea')}
           </button>
