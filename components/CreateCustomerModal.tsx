@@ -20,16 +20,17 @@ export default function CreateCustomerModal({
     last_name: '',
     email: '',
     phone: '',
+    nationality: '',
     
     // Documento di Identità
-    document_type: 'id_card',
+    document_type: 'Carta Identità',
     document_number: '',
     document_expiry: '',
     
     // Patente Nautica
     has_boat_license: false,
-    license_number: '',
-    license_expiry: '',
+    boat_license_number: '',
+    boat_license_expiry: '',
     
     // Note
     notes: ''
@@ -40,18 +41,33 @@ export default function CreateCustomerModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!formData.first_name || !formData.last_name || !formData.email) {
-      toast.error('Compila i campi obbligatori')
+    if (!formData.first_name || !formData.last_name) {
+      toast.error('Nome e Cognome sono obbligatori')
       return
     }
 
     try {
       setLoading(true)
 
+      const payload = {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        nationality: formData.nationality || null,
+        document_type: formData.document_type || null,
+        document_number: formData.document_number || null,
+        document_expiry: formData.document_expiry || null,
+        has_boat_license: formData.has_boat_license,
+        boat_license_number: formData.has_boat_license ? formData.boat_license_number || null : null,
+        boat_license_expiry: formData.has_boat_license ? formData.boat_license_expiry || null : null,
+        notes: formData.notes || null
+      }
+
       const res = await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       })
 
       if (!res.ok) {
@@ -70,12 +86,13 @@ export default function CreateCustomerModal({
         last_name: '',
         email: '',
         phone: '',
-        document_type: 'id_card',
+        nationality: '',
+        document_type: 'Carta Identità',
         document_number: '',
         document_expiry: '',
         has_boat_license: false,
-        license_number: '',
-        license_expiry: '',
+        boat_license_number: '',
+        boat_license_expiry: '',
         notes: ''
       })
     } catch (error: any) {
@@ -94,7 +111,7 @@ export default function CreateCustomerModal({
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between bg-white rounded-t-xl flex-shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Modifica Cliente</h2>
+            <h2 className="text-xl font-bold text-gray-900">Nuovo Cliente</h2>
             <p className="text-sm text-gray-600">Inserisci i dati anagrafici del cliente</p>
           </div>
           <button 
@@ -139,13 +156,12 @@ export default function CreateCustomerModal({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    required
                   />
                 </div>
 
@@ -156,6 +172,17 @@ export default function CreateCustomerModal({
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nazionalità</label>
+                  <input
+                    type="text"
+                    value={formData.nationality}
+                    onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    placeholder="Es. Italiana, Francese, Tedesca..."
                   />
                 </div>
               </div>
@@ -175,9 +202,9 @@ export default function CreateCustomerModal({
                     onChange={(e) => setFormData({ ...formData, document_type: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
-                    <option value="id_card">Carta d'Identità</option>
-                    <option value="passport">Passaporto</option>
-                    <option value="driving_license">Patente</option>
+                    <option value="Carta Identità">Carta d'Identità</option>
+                    <option value="Passaporto">Passaporto</option>
+                    <option value="Patente">Patente</option>
                   </select>
                 </div>
 
@@ -224,8 +251,8 @@ export default function CreateCustomerModal({
                     <label className="block text-sm font-medium text-gray-700 mb-1">Numero Patente</label>
                     <input
                       type="text"
-                      value={formData.license_number}
-                      onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
+                      value={formData.boat_license_number}
+                      onChange={(e) => setFormData({ ...formData, boat_license_number: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     />
                   </div>
@@ -234,8 +261,8 @@ export default function CreateCustomerModal({
                     <label className="block text-sm font-medium text-gray-700 mb-1">Scadenza</label>
                     <input
                       type="date"
-                      value={formData.license_expiry}
-                      onChange={(e) => setFormData({ ...formData, license_expiry: e.target.value })}
+                      value={formData.boat_license_expiry}
+                      onChange={(e) => setFormData({ ...formData, boat_license_expiry: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     />
                   </div>

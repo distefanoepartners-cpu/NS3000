@@ -4,9 +4,11 @@ import { supabaseAdmin } from '@/lib/supabase-client'
 // GET - Singola indisponibilità
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params
+    
     const { data, error } = await supabaseAdmin
       .from('unavailabilities')
       .select(`
@@ -17,7 +19,6 @@ export async function GET(
       .single()
 
     if (error) throw error
-
     return NextResponse.json(data)
   } catch (error: any) {
     console.error('Error fetching unavailability:', error)
@@ -28,9 +29,10 @@ export async function GET(
 // PUT - Aggiorna indisponibilità
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params
     const body = await request.json()
 
     const { data, error } = await supabaseAdmin
@@ -47,7 +49,6 @@ export async function PUT(
       .single()
 
     if (error) throw error
-
     return NextResponse.json(data)
   } catch (error: any) {
     console.error('Error updating unavailability:', error)
@@ -58,16 +59,17 @@ export async function PUT(
 // DELETE - Elimina indisponibilità
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params
+    
     const { error } = await supabaseAdmin
       .from('unavailabilities')
       .delete()
       .eq('id', params.id)
 
     if (error) throw error
-
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting unavailability:', error)
