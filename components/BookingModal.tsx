@@ -34,8 +34,10 @@ export default function BookingModal({
     final_price: 0,
     deposit_amount: 0,
     balance_amount: 0,
+    caution_amount: 0, // Cauzione
     deposit_payment_method_id: '', // Nuovo
     balance_payment_method_id: '', // Nuovo
+    caution_payment_method_id: '', // Nuovo per cauzione
     booking_status_id: '',
     notes: ''
   })
@@ -77,6 +79,7 @@ export default function BookingModal({
 
   useEffect(() => {
     if (isOpen) {
+      // Load options first
       loadOptions()
       
       if (booking) {
@@ -92,26 +95,28 @@ export default function BookingModal({
           final_price: booking.final_price || 0,
           deposit_amount: booking.deposit_amount || 0,
           balance_amount: booking.balance_amount || 0,
+          caution_amount: booking.caution_amount || 0,
           deposit_payment_method_id: booking.deposit_payment_method_id || '',
           balance_payment_method_id: booking.balance_payment_method_id || '',
+          caution_payment_method_id: booking.caution_payment_method_id || '',
           booking_status_id: booking.booking_status_id || '',
           notes: booking.notes || ''
         })
-        
-        // Set customer search text
-        const customer = options.customers.find((c: any) => c.id === booking.customer_id)
-        if (customer) {
-          setCustomerSearch(`${customer.first_name} ${customer.last_name}`)
-        }
+        // Customer name will be set by loadOptions when options arrive
       } else {
+        // New booking - reset customer search
+        setCustomerSearch('')
         setFormData(prev => ({
           ...prev,
           booking_date: preselectedDate ? format(preselectedDate, 'yyyy-MM-dd') : '',
           boat_id: preselectedBoatId || ''
         }))
       }
+    } else {
+      // Reset when closing
+      setCustomerSearch('')
     }
-  }, [isOpen, booking, preselectedDate, preselectedBoatId, options.customers])
+  }, [isOpen, booking, preselectedDate, preselectedBoatId]) // Removed options.customers
 
   async function loadOptions() {
     try {
@@ -122,20 +127,30 @@ export default function BookingModal({
       const rentalRes = await fetch('/api/rental-services')
       const rentalData = await rentalRes.json()
       
-      // Filter booking statuses - only 3
-      const allowedStatuses = ['Confermata', 'In Attesa', 'Completata']
+      // Filter booking statuses - tutti gli stati disponibili
+      const allowedStatuses = ['In Attesa', 'Opzionata', 'Confermata', 'Annullata', 'Completata']
       const filteredStatuses = (data.bookingStatuses || []).filter((s: any) => 
         allowedStatuses.includes(s.name)
       )
       
-      setOptions({
+      const newOptions = {
         customers: data.customers || [],
         boats: data.boats || [],
         services: data.services || [],
         rentalServices: rentalData || [],
         paymentMethods: data.paymentMethods || [],
         bookingStatuses: filteredStatuses
-      })
+      }
+      
+      setOptions(newOptions)
+      
+      // Set customer name for edit mode AFTER options are loaded
+      if (booking && booking.customer_id) {
+        const customer = newOptions.customers.find((c: any) => c.id === booking.customer_id)
+        if (customer) {
+          setCustomerSearch(`${customer.first_name} ${customer.last_name}`)
+        }
+      }
     } catch (error) {
       console.error('Error loading options:', error)
       toast.error('Errore caricamento opzioni')
@@ -159,6 +174,21 @@ export default function BookingModal({
       setFilteredCustomers(options.customers)
     }
   }, [customerSearch, options.customers])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as HTMLElement
+      if (!target.closest('.customer-search-container')) {
+        setShowCustomerDropdown(false)
+      }
+    }
+
+    if (showCustomerDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCustomerDropdown])
 
   function selectCustomer(customer: any) {
     setFormData(prev => ({ ...prev, customer_id: customer.id }))
@@ -270,7 +300,7 @@ export default function BookingModal({
     e.preventDefault()
 
     if (!formData.customer_id) {
-      toast.error('Seleziona un cliente')
+      toast.error('Seleziona un cliente dalla lista')
       return
     }
     if (!formData.boat_id) {
@@ -289,6 +319,28 @@ export default function BookingModal({
     try {
       setLoading(true)
 
+      // Controllo disponibilità
+      const availabilityRes = await fetch('/api/bookings/check-availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          boat_id: formData.boat_id,
+          booking_date: formData.booking_date,
+          booking_id: booking?.id // Per escludere la prenotazione corrente in modifica
+        })
+      })
+
+      const availabilityData = await availabilityRes.json()
+
+      if (!availabilityData.available) {
+        const errorMsg = availabilityData.reason || 'Barca non disponibile'
+        toast.error(errorMsg, { duration: 5000 })
+        alert(`⚠️ ${errorMsg}`)
+        setLoading(false)
+        return
+      }
+
+      // Procedi con il salvataggio
       const url = booking 
         ? `/api/bookings/${booking.id}` 
         : '/api/bookings'
@@ -349,7 +401,7 @@ export default function BookingModal({
               <div className="space-y-3 md:space-y-4">
                 {/* Cliente (Searchable) e Barca */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="relative">
+                  <div className="relative customer-search-container">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
                     <div className="flex gap-2">
                       <div className="flex-1 relative">
@@ -363,7 +415,6 @@ export default function BookingModal({
                           onFocus={() => setShowCustomerDropdown(true)}
                           placeholder="Cerca cliente..."
                           className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          required
                         />
                         {showCustomerDropdown && filteredCustomers.length > 0 && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -420,8 +471,8 @@ export default function BookingModal({
                     onChange={(e) => setFormData({ ...formData, service_type: e.target.value, service_id: '' })}
                     className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
-                    <option value="rental">Noleggio (con servizio)</option>
-                    <option value="charter">Locazione</option>
+                    <option value="rental">Locazione giornaliera</option>
+                    <option value="charter">Noleggio con skipper</option>
                   </select>
                 </div>
 
@@ -475,18 +526,36 @@ export default function BookingModal({
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Fascia Oraria</label>
-                    <input
-                      type="text"
-                      value={formData.time_slot}
-                      onChange={(e) => setFormData({ ...formData, time_slot: e.target.value })}
-                      placeholder="es. Full Day, Half Day, 10:00-14:00"
-                      list="time-slot-presets"
+                    <select
+                      value={formData.time_slot === 'morning' || formData.time_slot === 'afternoon' || formData.time_slot === 'full_day' ? formData.time_slot : 'custom'}
+                      onChange={(e) => {
+                        if (e.target.value === 'custom') {
+                          setFormData({ ...formData, time_slot: '' })
+                        } else {
+                          setFormData({ ...formData, time_slot: e.target.value })
+                        }
+                      }}
                       className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                    <datalist id="time-slot-presets">
-                      <option value="Full Day" />
-                      <option value="Half Day" />
-                    </datalist>
+                    >
+                      <option value="">Seleziona fascia...</option>
+                      <option value="morning">🌅 Half Day Mattina</option>
+                      <option value="afternoon">🌇 Half Day Pomeriggio</option>
+                      <option value="full_day">☀️ Full Day (Giornata Intera)</option>
+                      <option value="custom">⏰ Personalizzata</option>
+                    </select>
+                    
+                    {/* Campo testo per fascia personalizzata */}
+                    {formData.time_slot !== 'morning' && 
+                     formData.time_slot !== 'afternoon' && 
+                     formData.time_slot !== 'full_day' && (
+                      <input
+                        type="text"
+                        value={formData.time_slot}
+                        onChange={(e) => setFormData({ ...formData, time_slot: e.target.value })}
+                        placeholder="es. Serale 18:00-23:00"
+                        className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm mt-2"
+                      />
+                    )}
                   </div>
 
                   <div>
@@ -547,7 +616,10 @@ export default function BookingModal({
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                       />
                     </div>
+                  </div>
 
+                  {/* Acconto + Metodo */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Acconto (€)</label>
                       <input
@@ -558,7 +630,28 @@ export default function BookingModal({
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Metodo Acconto</label>
+                      <select
+                        value={formData.deposit_payment_method_id}
+                        onChange={(e) => setFormData({ ...formData, deposit_payment_method_id: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="">Seleziona...</option>
+                        {options.paymentMethods
+                          .filter((p: any) => p.code === 'stripe' || p.code === 'cash' || p.code === 'pos' || p.code === 'bank_transfer')
+                          .map((p: any) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                  </div>
 
+                  {/* Saldo + Metodo */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Saldo (€)</label>
                       <input
@@ -569,26 +662,6 @@ export default function BookingModal({
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                       />
                     </div>
-                  </div>
-
-                  {/* Metodi Pagamento Separati */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Metodo Acconto</label>
-                      <select
-                        value={formData.deposit_payment_method_id}
-                        onChange={(e) => setFormData({ ...formData, deposit_payment_method_id: e.target.value })}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                      >
-                        <option value="">Seleziona...</option>
-                        {options.paymentMethods.map((p: any) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Metodo Saldo</label>
                       <select
@@ -597,14 +670,73 @@ export default function BookingModal({
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                       >
                         <option value="">Seleziona...</option>
-                        {options.paymentMethods.map((p: any) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
+                        {options.paymentMethods
+                          .filter((p: any) => p.code === 'stripe' || p.code === 'cash' || p.code === 'pos' || p.code === 'bank_transfer')
+                          .map((p: any) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))
+                        }
                       </select>
                     </div>
                   </div>
+
+                  {/* Cauzione + Metodo - SOLO per Locazione */}
+                  {formData.service_type === 'rental' && (
+                    <div className="mb-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Cauzione (€) <span className="text-blue-600">• Solo Locazione</span>
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formData.caution_amount}
+                            onChange={(e) => setFormData({ ...formData, caution_amount: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            placeholder="Importo personalizzato"
+                          />
+                          {/* Pulsanti Rapidi */}
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, caution_amount: 150 })}
+                              className="flex-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-medium"
+                            >
+                              €150
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, caution_amount: 250 })}
+                              className="flex-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-medium"
+                            >
+                              €250
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Metodo Cauzione</label>
+                          <select
+                            value={formData.caution_payment_method_id}
+                            onChange={(e) => setFormData({ ...formData, caution_payment_method_id: e.target.value })}
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                          >
+                            <option value="">Seleziona...</option>
+                            {options.paymentMethods
+                              .filter((p: any) => p.code === 'cash' || p.code === 'stripe')
+                              .map((p: any) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))
+                            }
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Da Ricevere */}
                   <div className="p-2 bg-white rounded border border-gray-300">
