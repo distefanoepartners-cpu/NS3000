@@ -127,8 +127,10 @@ export default function BookingModal({
       const rentalRes = await fetch('/api/rental-services')
       const rentalData = await rentalRes.json()
       
+      console.log('📦 rentalServices caricati:', rentalData)
+      
       // Filter booking statuses - tutti gli stati disponibili
-      const allowedStatuses = ['In Attesa', 'Opzionata', 'Confermata', 'Annullata', 'Completata']
+      const allowedStatuses = ['In Attesa', 'Confermata', 'Da Recuperare', 'Chiusa']
       const filteredStatuses = (data.bookingStatuses || []).filter((s: any) => 
         allowedStatuses.includes(s.name)
       )
@@ -143,6 +145,11 @@ export default function BookingModal({
       }
       
       setOptions(newOptions)
+      
+      console.log('✅ Options settati:', {
+        rentalServices_count: newOptions.rentalServices.length,
+        rentalServices: newOptions.rentalServices.map((s: any) => ({ id: s.id, name: s.name, type: s.service_type }))
+      })
       
       // Set customer name for edit mode AFTER options are loaded
       if (booking && booking.customer_id) {
@@ -198,88 +205,19 @@ export default function BookingModal({
 
   // Load boat services
   useEffect(() => {
-    async function loadBoatServices() {
-      if (!formData.boat_id) {
-        setAvailableServices([])
-        return
-      }
-
-      try {
-        const res = await fetch(`/api/boats/${formData.boat_id}/services`)
-        const data = await res.json()
-        
-        const servicesWithInfo = data.map((bs: any) => {
-          const serviceInfo = options.rentalServices.find((s: any) => s.id === bs.service_id)
-          return {
-            ...bs,
-            name: serviceInfo?.name || 'Servizio',
-            description: serviceInfo?.description
-          }
-        })
-        
-        setAvailableServices(servicesWithInfo)
-      } catch (error) {
-        console.error('Error loading boat services:', error)
-        setAvailableServices([])
-      }
+    // Carica TUTTI i servizi disponibili
+    if (options.rentalServices.length > 0) {
+      setAvailableServices(options.rentalServices)
     }
+  }, [options.rentalServices])
 
-    if (formData.service_type === 'rental' && formData.boat_id) {
-      loadBoatServices()
-    } else {
-      setAvailableServices([])
-    }
-  }, [formData.boat_id, formData.service_type, options.rentalServices])
-
-  // Calculate price
-  useEffect(() => {
-    async function calculatePrice() {
-      if (
-        formData.service_type !== 'rental' ||
-        !formData.boat_id || 
-        !formData.service_id || 
-        !formData.booking_date ||
-        booking
-      ) {
-        return
-      }
-
-      try {
-        setCalculatingPrice(true)
-        
-        const res = await fetch('/api/bookings/calculate-price', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            boat_id: formData.boat_id,
-            service_id: formData.service_id,
-            booking_date: formData.booking_date,
-            num_passengers: formData.num_passengers
-          })
-        })
-
-        const data = await res.json()
-        
-        if (data.price) {
-          setFormData(prev => ({
-            ...prev,
-            base_price: data.price,
-            final_price: data.price
-          }))
-          toast.success(`Prezzo calcolato: €${data.price}`)
-        } else {
-          toast.error('Prezzo non disponibile per questa stagione')
-        }
-      } catch (error) {
-        console.error('Error calculating price:', error)
-        toast.error('Errore calcolo prezzo')
-      } finally {
-        setCalculatingPrice(false)
-      }
-    }
-
-    calculatePrice()
-  }, [formData.boat_id, formData.service_id, formData.booking_date, formData.num_passengers, formData.service_type, booking])
+  // Calculate price - DISABILITATO: usiamo calcolo diretto dalla barca
+  // useEffect(() => {
+  //   async function calculatePrice() {
+  //     ...
+  //   }
+  //   calculatePrice()
+  // }, [...])
 
   // Auto-load price for charter
   useEffect(() => {
@@ -295,6 +233,146 @@ export default function BookingModal({
       }
     }
   }, [formData.boat_id, formData.service_type, options.boats, booking])
+
+  // Auto-calcolo prezzo diretto da barca (per rental, tour, transfer)
+  useEffect(() => {
+    console.log('🔍 CALCOLO PREZZI - Debug:', {
+      boat_id: formData.boat_id,
+      service_id: formData.service_id,
+      booking_date: formData.booking_date,
+      time_slot: formData.time_slot,
+      boats_count: options.boats.length,
+      booking_mode: !!booking
+    })
+    
+    // Salta se è collective (calcolato separatamente x pax)
+    const selectedService = options.rentalServices.find((s: any) => s.id === formData.service_id)
+    console.log('🔍 Selected Service:', selectedService?.name, selectedService?.service_type)
+    
+    if (selectedService?.service_type === 'collective') {
+      console.log('⏭️ Skipping - collective service')
+      return
+    }
+    
+    if (
+      formData.boat_id && 
+      formData.booking_date &&
+      formData.time_slot &&
+      options.boats.length > 0 &&
+      !booking // Solo per nuove prenotazioni
+    ) {
+      const selectedBoat = options.boats.find((b: any) => b.id === formData.boat_id)
+      console.log('🚤 Selected Boat:', selectedBoat?.name)
+      
+      if (selectedBoat) {
+        let price = 0
+       const month = new Date(formData.booking_date).getMonth() + 1
+let price = 0
+
+          // Determina se è rental o charter
+          const isRental = selectedService?.service_type === 'rental'
+          const pricePrefix = isRental ? 'price_rental' : 'price_charter'
+
+          // Determina se è half day o full day
+          const isFullDay = formData.time_slot === 'full_day'
+
+    // Calcola prezzo in base a mese e fascia
+      if ([4, 5, 10].includes(month)) {
+        price = isFullDay 
+          ? (selectedBoat[`${pricePrefix}_apr_may_oct_full_day`] || 0)
+          : (selectedBoat[`${pricePrefix}_apr_may_oct_half_day`] || 0)
+        } else if (month === 6) { // Giugno
+            price = isFullDay
+            ? (selectedBoat[`${pricePrefix}_june_full_day`] || 0)
+            : (selectedBoat[`${pricePrefix}_june_half_day`] || 0)
+          } else if ([7, 9].includes(month)) { // Luglio/Settembre
+            price = isFullDay
+            ? (selectedBoat[`${pricePrefix}_july_sept_full_day`] || 0)
+            : (selectedBoat[`${pricePrefix}_july_sept_half_day`] || 0)
+          } else if (month === 8) { // Agosto
+            price = isFullDay
+            ? (selectedBoat[`${pricePrefix}_august_full_day`] || 0)
+            : (selectedBoat[`${pricePrefix}_august_half_day`] || 0)
+          }
+          
+          console.log('💰 Prezzo dalla BARCA:', price)
+        
+        console.log('💰 Prezzo FINALE:', price)
+        
+        // Aggiorna prezzo se trovato
+        if (price && price > 0) {
+          setFormData(prev => ({
+            ...prev,
+            base_price: price,
+            final_price: price
+          }))
+          toast.success(`Prezzo automatico: €${price}`)
+        } else {
+          console.warn('⚠️ No price found for this period')
+        }
+        
+        // Auto-imposta cauzione se disponibile E servizio è rental
+        if (selectedService?.service_type === 'rental' && 
+            selectedBoat.caution_amount && 
+            selectedBoat.caution_amount > 0 && 
+            formData.caution_amount === 0) {
+          setFormData(prev => ({
+            ...prev,
+            caution_amount: selectedBoat.caution_amount
+          }))
+        }
+      }
+    }
+  }, [formData.boat_id, formData.service_id, formData.booking_date, formData.time_slot, options.boats, options.rentalServices, booking])
+
+  // Calcolo prezzo tour/transfer/collective
+  useEffect(() => {
+    console.log('💰 CALCOLO COLLECTIVE - Start:', {
+      service_id: formData.service_id,
+      num_passengers: formData.num_passengers,
+      rentalServices_length: options.rentalServices.length,
+      booking_mode: !!booking
+    })
+    
+    if (
+      formData.service_id && 
+      formData.num_passengers > 0 &&
+      options.rentalServices.length > 0 &&
+      !booking
+    ) {
+      const selectedService = options.rentalServices.find((s: any) => s.id === formData.service_id)
+      
+      console.log('💰 Selected Service for collective:', {
+        name: selectedService?.name,
+        type: selectedService?.service_type,
+        base_price: selectedService?.base_price
+      })
+      
+      // SOLO tour COLLETTIVI: prezzo x pax
+      if (selectedService && selectedService.service_type === 'collective') {
+        const pricePerPerson = selectedService.price_per_person || 0
+        const totalPrice = pricePerPerson * formData.num_passengers
+        
+        console.log('💰 CALCOLO:', `€${pricePerPerson} x ${formData.num_passengers} = €${totalPrice}`)
+        
+        if (totalPrice > 0) {
+          setFormData(prev => ({
+            ...prev,
+            base_price: totalPrice,
+            final_price: totalPrice
+          }))
+          toast.success(`Prezzo calcolato: €${pricePerPerson} x ${formData.num_passengers} pax = €${totalPrice}`)
+        } else {
+          console.warn('⚠️ Prezzo = 0! price_per_person del servizio è:', selectedService.price_per_person)
+        }
+      } else {
+        console.log('ℹ️ Non è un servizio collective, skip calcolo x pax')
+      }
+      // Tour normali e transfer: prendono prezzo dalla barca (gestito da altro useEffect)
+    } else {
+      console.log('❌ Condizioni non soddisfatte per calcolo collective')
+    }
+  }, [formData.service_id, formData.num_passengers, options.rentalServices, booking])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -454,11 +532,28 @@ export default function BookingModal({
                       required
                     >
                       <option value="">Seleziona...</option>
-                      {options.boats.map((b: any) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
+                      {options.boats
+                        .filter((b: any) => {
+                          // Filtra barche in base al servizio selezionato
+                          if (!formData.service_id) return true
+                          
+                          const selectedService = options.rentalServices.find((s: any) => s.id === formData.service_id)
+                          if (!selectedService) return true
+                          
+                          // Se servizio è rental → solo barche con has_rental
+                          if (selectedService.service_type === 'rental') {
+                            return b.has_rental === true
+                          }
+                          
+                          // Se servizio è tour/transfer/collective → solo barche con has_charter
+                          return b.has_charter === true
+                        })
+                        .map((b: any) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))
+                      }
                     </select>
                   </div>
                 </div>
@@ -471,8 +566,8 @@ export default function BookingModal({
                     onChange={(e) => setFormData({ ...formData, service_type: e.target.value, service_id: '' })}
                     className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
-                    <option value="rental">Locazione giornaliera</option>
-                    <option value="charter">Noleggio con skipper</option>
+                    <option value="charter">Noleggio (con skipper)</option>
+                    <option value="rental">Locazione (senza skipper)</option>
                   </select>
                 </div>
 
@@ -484,30 +579,20 @@ export default function BookingModal({
                   </label>
                   <select
                     value={formData.service_id}
-                    onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
+                    onChange={(e) => {
+                      console.log('🔄 Servizio selezionato:', e.target.value)
+                      setFormData({ ...formData, service_id: e.target.value })
+                    }}
                     className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     required
-                    disabled={formData.service_type === 'rental' && !formData.boat_id}
                   >
-                    <option value="">
-                      {formData.service_type === 'rental' 
-                        ? (formData.boat_id ? 'Seleziona servizio...' : 'Prima seleziona una barca')
-                        : 'Seleziona...'}
-                    </option>
+                    <option value="">Seleziona servizio...</option>
                     
-                    {formData.service_type === 'rental' ? (
-                      availableServices.map((s: any) => (
-                        <option key={s.service_id} value={s.service_id}>
-                          {s.name}
-                        </option>
-                      ))
-                    ) : (
-                      options.services.map((s: any) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))
-                    )}
+                    {availableServices.map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -682,8 +767,11 @@ export default function BookingModal({
                     </div>
                   </div>
 
-                  {/* Cauzione + Metodo - SOLO per Locazione */}
-                  {formData.service_type === 'rental' && (
+                  {/* Cauzione + Metodo - SOLO per servizi rental */}
+                  {(() => {
+                    const selectedService = options.rentalServices.find((s: any) => s.id === formData.service_id)
+                    return selectedService?.service_type === 'rental'
+                  })() && (
                     <div className="mb-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
