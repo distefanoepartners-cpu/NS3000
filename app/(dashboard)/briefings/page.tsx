@@ -17,6 +17,7 @@ export default function BriefingsPage() {
   const { isAdmin } = useAuth();
   const [briefings, setBriefings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -79,6 +80,33 @@ export default function BriefingsPage() {
     }
   };
 
+  const createManualBriefing = async () => {
+    if (!confirm('Vuoi creare un briefing per domani?')) return;
+    
+    setCreating(true);
+    try {
+      const response = await fetch('/api/briefings/create-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ ${data.message}\n\nPrenotazioni: ${data.briefing.bookings_count}\nPasseggeri: ${data.briefing.total_passengers}`);
+        loadBriefings(); // Ricarica lista
+      } else {
+        alert(`❌ Errore: ${data.error || 'Impossibile creare briefing'}`);
+      }
+    } catch (error) {
+      console.error('Error creating briefing:', error);
+      alert('❌ Errore durante la creazione del briefing');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="p-6 text-center">
@@ -98,9 +126,29 @@ export default function BriefingsPage() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-          📋 Tracciamento Promemoria
-        </h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            📋 Tracciamento Promemoria
+          </h1>
+          
+          {/* Pulsante Crea Briefing Manuale */}
+          <button
+            onClick={createManualBriefing}
+            disabled={creating}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+          >
+            {creating ? (
+              <>
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Creazione...
+              </>
+            ) : (
+              <>
+                ➕ Crea Briefing Manuale
+              </>
+            )}
+          </button>
+        </div>
         <p className="text-gray-600">
           Monitora chi ha confermato la lettura dei promemoria giornalieri
         </p>
