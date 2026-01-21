@@ -11,8 +11,17 @@ export async function GET(request: Request) {
 
     let query = supabaseAdmin
       .from('bookings')
-      .select('*')
-      .order('booking_date', { ascending: true }) // Dalla più vicina alla più lontana
+      .select(`
+        *,
+        customer:customers(id, first_name, last_name, email, phone),
+        boat:boats(id, name, boat_type),
+        service:rental_services(id, name, description),
+        deposit_payment_method:payment_methods!deposit_payment_method_id(id, name, code),
+        balance_payment_method:payment_methods!balance_payment_method_id(id, name, code),
+        booking_status:booking_statuses(id, name, code),
+        skipper:skippers(id, first_name, last_name, phone, license_number, license_expiry_date)
+      `)
+      .order('booking_date', { ascending: true })
       .order('created_at', { ascending: false })
 
     // Filtri opzionali
@@ -56,9 +65,17 @@ export async function POST(request: Request) {
         deposit_amount: body.deposit_amount || 0,
         balance_amount: body.balance_amount || 0,
         deposit_payment_method_id: body.deposit_payment_method_id || null,
+        deposit_payment_date: body.deposit_payment_date || null,
+        balance_payment_date: body.balance_payment_date || null,
         balance_payment_method_id: body.balance_payment_method_id || null,
         booking_status_id: body.booking_status_id || null,
-        notes: body.notes || null
+        notes: body.notes || null,
+        // NUOVI CAMPI v1.4.0+
+        payment_type: body.payment_type || 'deposit',
+        deposit_percentage: body.deposit_percentage || 30,
+        booking_source: body.booking_source || 'online',
+        supplier_id: body.supplier_id || null,
+        skipper_id: body.skipper_id || null
       })
       .select()
       .single()

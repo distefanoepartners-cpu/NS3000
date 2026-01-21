@@ -1,0 +1,129 @@
+========================================
+FILE MANCANTI - SISTEMA NOTIFICHE NS3000
+========================================
+
+QUESTI SONO I 3 FILE CHE MANCANO AL TUO PROGETTO
+=================================================
+
+1. components/NotificationManager.tsx
+   └─> Componente React per il badge e pannello notifiche
+
+2. public/sw.js
+   └─> Service Worker per notifiche push
+
+3. app/api/notifications/send/route.ts
+   └─> API per inviare notifiche push
+
+
+COME COPIARLI
+=============
+
+Metodo 1: Manualmente (Consigliato per Windows)
+------------------------------------------------
+
+1. Estrai questo ZIP in una cartella temporanea
+
+2. Copia i file nel tuo progetto:
+
+   DA: ns3000_file_mancanti/components/NotificationManager.tsx
+   A:  tuo_progetto/components/NotificationManager.tsx
+
+   DA: ns3000_file_mancanti/public/sw.js
+   A:  tuo_progetto/public/sw.js
+
+   DA: ns3000_file_mancanti/app/api/notifications/send/route.ts
+   A:  tuo_progetto/app/api/notifications/send/route.ts
+
+
+Metodo 2: PowerShell
+--------------------
+
+Apri PowerShell nella directory del progetto ed esegui:
+
+# Sostituisci C:\Download\ns3000_file_mancanti con il percorso dove hai estratto lo ZIP
+
+Copy-Item "C:\Download\ns3000_file_mancanti\components\NotificationManager.tsx" -Destination ".\components\" -Force
+
+Copy-Item "C:\Download\ns3000_file_mancanti\public\sw.js" -Destination ".\public\" -Force
+
+Copy-Item "C:\Download\ns3000_file_mancanti\app\api\notifications\send\route.ts" -Destination ".\app\api\notifications\send\" -Force
+
+
+DOPO AVER COPIATO I FILE
+=========================
+
+Esegui di nuovo il test:
+
+    node test-notifications.js
+
+Dovresti vedere: "Sistema notifiche completamente configurato!"
+
+
+PROSSIMI PASSI
+==============
+
+1. Se il test passa, avvia il server:
+   
+   npm run dev
+
+2. Apri il backoffice nel browser
+
+3. Cerca l'icona della campanella (🔔) nell'header
+
+4. Clicca sul pulsante "Abilita Notifiche Push"
+
+5. Accetta il permesso del browser
+
+6. Crea una prenotazione di test
+
+7. Entro 30 secondi dovresti ricevere la notifica!
+
+
+NOTE
+====
+
+- I file audio (alert.mp3, info.mp3, success.mp3) sono OPZIONALI
+- Se non li aggiungi, semplicemente non sentirai suoni
+- Le notifiche funzioneranno comunque
+
+
+STRUTTURA FINALE
+================
+
+Dopo aver copiato questi 3 file, il tuo progetto dovrebbe avere:
+
+tuo_progetto/
+├── components/
+│   └── NotificationManager.tsx        ✅ NUOVO
+├── public/
+│   ├── sw.js                          ✅ NUOVO
+│   └── sounds/                        (opzionale)
+│       ├── alert.mp3
+│       ├── info.mp3
+│       └── success.mp3
+├── app/
+│   └── api/
+│       └── notifications/
+│           ├── subscribe/
+│           │   └── route.ts           ✅ (già copiato prima)
+│           └── send/
+│               └── route.ts           ✅ NUOVO
+├── lib/
+│   └── notifications.ts               ✅ (già copiato prima)
+├── database/
+│   └── notifications-schema.sql       ✅ (già copiato prima)
+└── test-notifications.js              ✅ (già copiato prima)
+
+
+SUPPORTO
+========
+
+Se hai problemi:
+- Leggi GUIDA-NOTIFICHE.md
+- Controlla ISTRUZIONI.txt
+- Verifica la console del browser (F12)
+
+
+========================================
+Fine Istruzioni
+========================================

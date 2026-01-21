@@ -1,42 +1,87 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
+
+interface Customer {
+  id: string
+  first_name: string
+  last_name: string
+  email?: string | null
+  phone?: string | null
+  nationality?: string | null
+  document_type?: string | null
+  document_number?: string | null
+  document_expiry?: string | null
+  has_boat_license?: boolean
+  boat_license_number?: string | null
+  boat_license_expiry?: string | null
+  notes?: string | null
+}
 
 interface CreateCustomerModalProps {
   isOpen: boolean
   onClose: () => void
   onCustomerCreated: (customerId: string) => void
+  customer?: Customer | null
 }
 
 export default function CreateCustomerModal({ 
   isOpen, 
   onClose, 
-  onCustomerCreated 
+  onCustomerCreated,
+  customer
 }: CreateCustomerModalProps) {
   const [formData, setFormData] = useState({
-    // Dati Anagrafici
     first_name: '',
     last_name: '',
     email: '',
     phone: '',
     nationality: '',
-    
-    // Documento di Identità
     document_type: 'Carta Identità',
     document_number: '',
     document_expiry: '',
-    
-    // Patente Nautica
     has_boat_license: false,
     boat_license_number: '',
     boat_license_expiry: '',
-    
-    // Note
     notes: ''
   })
 
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (customer && isOpen) {
+      setFormData({
+        first_name: customer.first_name || '',
+        last_name: customer.last_name || '',
+        email: customer.email || '',
+        phone: customer.phone || '',
+        nationality: customer.nationality || '',
+        document_type: customer.document_type || 'Carta Identità',
+        document_number: customer.document_number || '',
+        document_expiry: customer.document_expiry || '',
+        has_boat_license: customer.has_boat_license || false,
+        boat_license_number: customer.boat_license_number || '',
+        boat_license_expiry: customer.boat_license_expiry || '',
+        notes: customer.notes || ''
+      })
+    } else if (!customer && isOpen) {
+      setFormData({
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        nationality: '',
+        document_type: 'Carta Identità',
+        document_number: '',
+        document_expiry: '',
+        has_boat_license: false,
+        boat_license_number: '',
+        boat_license_expiry: '',
+        notes: ''
+      })
+    }
+  }, [customer, isOpen])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -64,39 +109,26 @@ export default function CreateCustomerModal({
         notes: formData.notes || null
       }
 
-      const res = await fetch('/api/customers', {
-        method: 'POST',
+      const url = customer ? `/api/customers/${customer.id}` : '/api/customers'
+      const method = customer ? 'PUT' : 'POST'
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
 
       if (!res.ok) {
         const error = await res.json()
-        throw new Error(error.error || 'Errore creazione cliente')
+        throw new Error(error.error || `Errore ${customer ? 'modifica' : 'creazione'} cliente`)
       }
 
-      const newCustomer = await res.json()
-      toast.success('Cliente creato con successo!')
-      onCustomerCreated(newCustomer.id)
+      const savedCustomer = await res.json()
+      toast.success(`Cliente ${customer ? 'modificato' : 'creato'} con successo!`)
+      onCustomerCreated(savedCustomer.id)
       onClose()
-      
-      // Reset form
-      setFormData({
-        first_name: '',
-        last_name: '',
-        email: '',
-        phone: '',
-        nationality: '',
-        document_type: 'Carta Identità',
-        document_number: '',
-        document_expiry: '',
-        has_boat_license: false,
-        boat_license_number: '',
-        boat_license_expiry: '',
-        notes: ''
-      })
     } catch (error: any) {
-      console.error('Error creating customer:', error)
+      console.error('Error saving customer:', error)
       toast.error(error.message)
     } finally {
       setLoading(false)
@@ -108,11 +140,14 @@ export default function CreateCustomerModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-        {/* Header */}
         <div className="p-4 border-b flex items-center justify-between bg-white rounded-t-xl flex-shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Nuovo Cliente</h2>
-            <p className="text-sm text-gray-600">Inserisci i dati anagrafici del cliente</p>
+            <h2 className="text-xl font-bold text-gray-900">
+              {customer ? 'Modifica Cliente' : 'Nuovo Cliente'}
+            </h2>
+            <p className="text-sm text-gray-600">
+              {customer ? 'Aggiorna i dati del cliente' : 'Inserisci i dati anagrafici del cliente'}
+            </p>
           </div>
           <button 
             onClick={onClose} 
@@ -122,7 +157,6 @@ export default function CreateCustomerModal({
           </button>
         </div>
 
-        {/* Form - Scrollable */}
         <div className="overflow-y-auto flex-1 p-6">
           <form id="customer-form" onSubmit={handleSubmit} className="space-y-6">
             
@@ -303,8 +337,7 @@ export default function CreateCustomerModal({
             className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
             disabled={loading}
           >
-            {loading ? 'Salvataggio...' : 'Crea Cliente'}
-          </button>
+            {loading ? 'Salvataggio...' : (customer ? 'Salva Modifiche' : 'Crea Cliente')}          </button>
         </div>
       </div>
     </div>

@@ -3,19 +3,17 @@ import { supabaseAdmin } from '@/lib/supabase-client'
 
 export async function GET(request: Request) {
   try {
-    // Carica tutte le opzioni in parallelo
+    // Carica tutte le opzioni in parallelo (SENZA time_slots)
     const [
       customersRes,
       boatsRes,
       servicesRes,
-      timeSlotsRes,
       paymentMethodsRes,
       bookingStatusesRes
     ] = await Promise.all([
       supabaseAdmin.from('customers').select('*').order('last_name'),
       supabaseAdmin.from('boats').select('*').order('name'),
-      supabaseAdmin.from('rental_services').select('*').order('name'), // 🆕 CAMBIATO
-      supabaseAdmin.from('time_slots').select('*').order('start_time'),
+      supabaseAdmin.from('rental_services').select('*').order('name'),
       supabaseAdmin.from('payment_methods').select('*').order('name'),
       supabaseAdmin.from('booking_statuses').select('*').order('name')
     ])
@@ -24,7 +22,6 @@ export async function GET(request: Request) {
       customers: customersRes.data || [],
       boats: boatsRes.data || [],
       services: servicesRes.data || [],
-      timeSlots: timeSlotsRes.data || [],
       paymentMethods: paymentMethodsRes.data || [],
       bookingStatuses: bookingStatusesRes.data || []
     }
@@ -36,9 +33,8 @@ export async function GET(request: Request) {
       customers: [],
       boats: [],
       services: [],
-      timeSlots: [],
       paymentMethods: [],
       bookingStatuses: []
-    })
+    }, { status: 500 })
   }
-} 
+}

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export default function LoginPage() {
   const router = useRouter()
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,13 +23,16 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
+        body: JSON.stringify({ email, password })
       })
+
+      const data = await response.json()
 
       if (response.ok) {
         router.push('/')
+        router.refresh()
       } else {
-        setError('Password errata')
+        setError(data.error || 'Credenziali non valide')
       }
     } catch (err) {
       setError('Errore di connessione')
@@ -48,7 +52,7 @@ export default function LoginPage() {
             NS3000 RENT
           </CardTitle>
           <CardDescription className="text-center">
-            Inserisci la password per accedere
+            Accedi al sistema di gestione
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -60,6 +64,20 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="admin@ns3000.it"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={loading}
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
@@ -69,7 +87,6 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                autoFocus
               />
             </div>
 

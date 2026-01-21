@@ -2,24 +2,41 @@
 
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { it } from 'date-fns/locale'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import BookingModal from '@/components/BookingModal'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function PrenotazioniPage() {
+  const { isAdmin, isStaff } = useAuth()
   const [bookings, setBookings] = useState<any[]>([])
+  const [boats, setBoats] = useState<any[]>([])
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterPayment, setFilterPayment] = useState('all')
+  const [filterBoat, setFilterBoat] = useState('all')
+  const [filterDate, setFilterDate] = useState('all')
+  const [customDate, setCustomDate] = useState('')
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
 
+  // Helper per tradurre time_slot
+  function getTimeSlotLabel(timeSlot: string): string {
+    const labels: { [key: string]: string } = {
+      'morning': 'Mattina',
+      'afternoon': 'Pomeriggio', 
+      'evening': 'Sera',
+      'full_day': 'Giornata intera'
+    }
+    return labels[timeSlot] || timeSlot
+  }
+
   useEffect(() => {
     loadBookings()
+    loadBoats()
     loadStats()
   }, [])
 
@@ -34,6 +51,16 @@ export default function PrenotazioniPage() {
       toast.error('Errore caricamento prenotazioni')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadBoats() {
+    try {
+      const res = await fetch('/api/boats')
+      const data = await res.json()
+      setBoats(data || [])
+    } catch (error) {
+      console.error('Error loading boats:', error)
     }
   }
 
@@ -85,7 +112,16 @@ export default function PrenotazioniPage() {
       filterPayment === 'all' || 
       b.payment_method?.code === filterPayment
 
-    return matchesSearch && matchesStatus && matchesPayment
+    const matchesBoat = 
+      filterBoat === 'all' || 
+      b.boat_id === filterBoat
+
+    const matchesDate = 
+      filterDate === 'all' || 
+      (filterDate === 'today' && b.booking_date === format(new Date(), 'yyyy-MM-dd')) ||
+      (filterDate === 'custom' && customDate && b.booking_date === customDate)
+
+    return matchesSearch && matchesStatus && matchesPayment && matchesBoat && matchesDate
   })
 
   if (loading) {
@@ -101,20 +137,60 @@ export default function PrenotazioniPage() {
       {/* Header */}
       <div className="mb-4 md:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 md:mb-2">Prenotazioni</h1>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 md:mb-2">
+            Prenotazioni
+            {isStaff && (
+              <span className="ml-3 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
+                👁️ Solo Visualizzazione
+              </span>
+            )}
+          </h1>
           <p className="text-sm md:text-base text-gray-600">Gestisci tutte le prenotazioni</p>
         </div>
-        <button
-          onClick={() => setShowBookingModal(true)}
-          className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-sm md:text-base"
-        >
-          ➕ Nuova Prenotazione
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowBookingModal(true)}
+            className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-sm md:text-base"
+          >
+            ➕ Nuova Prenotazione
+          </button>
+        )}
       </div>
 
       {/* Filtri */}
       <div className="mb-4 md:mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-4">
+          <div>
+            <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Data</label>
+            <select
+              value={filterDate}
+              onChange={(e) => {
+                setFilterDate(e.target.value)
+                if (e.target.value !== 'custom') {
+                  setCustomDate('')
+                }
+              }}
+              className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg text-sm md:text-base font-medium"
+            >
+              <option value="all">Tutte le date</option>
+              <option value="today">🗓️ Prenotazioni Oggi</option>
+              <option value="custom">📅 Cerca per data...</option>
+            </select>
+          </div>
+
+          {/* Campo data personalizzata (appare solo se selezionato) */}
+          {filterDate === 'custom' && (
+            <div>
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Seleziona Data</label>
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                className="w-full px-3 md:px-4 py-2 border-2 border-blue-500 rounded-lg text-sm md:text-base bg-blue-50 font-medium focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+          
           <div>
             <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Cerca</label>
             <input
@@ -125,6 +201,21 @@ export default function PrenotazioniPage() {
               className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg text-sm md:text-base"
             />
           </div>
+          
+          <div>
+            <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Barca</label>
+            <select
+              value={filterBoat}
+              onChange={(e) => setFilterBoat(e.target.value)}
+              className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg text-sm md:text-base"
+            >
+              <option value="all">Tutte</option>
+              {boats.map((boat) => (
+                <option key={boat.id} value={boat.id}>{boat.name}</option>
+              ))}
+            </select>
+          </div>
+          
           <div>
             <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Stato</label>
             <select
@@ -134,11 +225,13 @@ export default function PrenotazioniPage() {
             >
               <option value="all">Tutte</option>
               <option value="pending">In Attesa</option>
+              <option value="option">Opzionate</option>
               <option value="confirmed">Confermate</option>
+              <option value="cancelled">Annullate</option>
               <option value="completed">Completate</option>
-              <option value="cancelled">Cancellate</option>
             </select>
           </div>
+          
           <div>
             <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Pagamento</label>
             <select
@@ -181,14 +274,15 @@ export default function PrenotazioniPage() {
                       {booking.customer?.first_name} {booking.customer?.last_name}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
-                      {format(new Date(booking.booking_date), 'dd MMM yyyy', { locale: it })}
+                      {format(new Date(booking.booking_date), 'dd/MM/yyyy')}
                     </div>
                   </div>
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    booking.booking_status?.code === 'confirmed' ? 'bg-green-100 text-green-800' :
                     booking.booking_status?.code === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    booking.booking_status?.code === 'completed' ? 'bg-blue-100 text-blue-800' :
-                    booking.booking_status?.code === 'cancelled' ? 'bg-red-100 text-red-800' :
+                    booking.booking_status?.code === 'option' ? 'bg-orange-100 text-orange-800' :
+                    booking.booking_status?.code === 'confirmed' ? 'bg-green-100 text-green-800' :
+                    booking.booking_status?.code === 'cancelled' ? 'bg-fuchsia-100 text-fuchsia-800' :
+                    booking.booking_status?.code === 'completed' ? 'bg-red-100 text-red-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
                     {booking.booking_status?.name || 'N/D'}
@@ -205,16 +299,20 @@ export default function PrenotazioniPage() {
                     <span className="text-gray-600">Barca:</span>
                     <span className="font-medium text-gray-900">{booking.boat?.name}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Totale:</span>
-                    <span className="font-semibold text-gray-900">€{(booking.final_price || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Da ricevere:</span>
-                    <span className={`font-semibold ${daRicevere > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      €{daRicevere.toFixed(2)}
-                    </span>
-                  </div>
+                  {isAdmin && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Totale:</span>
+                        <span className="font-semibold text-gray-900">€{(booking.final_price || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Da ricevere:</span>
+                        <span className={`font-semibold ${daRicevere > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          €{daRicevere.toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Actions */}
@@ -225,21 +323,25 @@ export default function PrenotazioniPage() {
                   >
                     👁️ Dettagli
                   </Link>
-                  <button
-                    onClick={() => {
-                      setSelectedBooking(booking)
-                      setShowEditModal(true)
-                    }}
-                    className="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  >
-                    ✏️ Modifica
-                  </button>
-                  <button
-                    onClick={() => handleDelete(booking.id)}
-                    className="px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
-                  >
-                    🗑️
-                  </button>
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setSelectedBooking(booking)
+                          setShowEditModal(true)
+                        }}
+                        className="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        ✏️ Modifica
+                      </button>
+                      <button
+                        onClick={() => handleDelete(booking.id)}
+                        className="px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+                      >
+                        🗑️
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )
@@ -256,8 +358,13 @@ export default function PrenotazioniPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Data</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Cliente</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Servizio</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Importo</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Metodo</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Skipper</th>
+                {isAdmin && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Importo</th>
+                )}
+                {isAdmin && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Metodo</th>
+                )}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Stato</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Azioni</th>
               </tr>
@@ -265,7 +372,7 @@ export default function PrenotazioniPage() {
             <tbody className="divide-y divide-gray-200">
               {filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                     Nessuna prenotazione trovata
                   </td>
                 </tr>
@@ -281,75 +388,119 @@ export default function PrenotazioniPage() {
                     <tr key={booking.id} className="hover:bg-gray-50">
                       <td className="px-4 py-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {format(new Date(booking.booking_date), 'dd MMM yyyy', { locale: it })}
+                          {format(new Date(booking.booking_date), 'dd/MM/yyyy')}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {booking.time_slot?.name || booking.booking_number}
+                          {getTimeSlotLabel(booking.time_slot) || booking.booking_number}
                         </div>
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm font-medium text-gray-900">
                           {booking.customer?.first_name} {booking.customer?.last_name}
                         </div>
-                        <div className="text-xs text-gray-500 break-all">{booking.customer?.email}</div>
+                        <div className="text-xs text-gray-500">{booking.customer?.phone}</div>
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-900">{booking.service?.name}</div>
-                        <div className="text-xs text-gray-500">{booking.boat?.name}</div>
+                        <div className="text-xs text-gray-500">{booking.boat?.name} - {booking.num_passengers} Pax</div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="text-sm font-semibold text-gray-900">
-                          Totale: €{(booking.final_price || 0).toFixed(2)}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          Acconto: €{(booking.deposit_amount || 0).toFixed(2)}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          Saldo: €{(booking.balance_amount || 0).toFixed(2)}
-                        </div>
-                        <div className={`text-xs font-semibold ${daRicevere > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          Da ricevere: €{daRicevere.toFixed(2)}
-                        </div>
+                        {booking.skipper ? (
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              ⚓ {booking.skipper.first_name} {booking.skipper.last_name}
+                            </div>
+                            {booking.skipper.phone && (
+                              <div className="text-xs text-gray-500">{booking.skipper.phone}</div>
+                            )}
+                            {booking.skipper.license_expiry_date && (
+                              (() => {
+                                const expiry = new Date(booking.skipper.license_expiry_date)
+                                const today = new Date()
+                                const days = Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                                if (days < 0) {
+                                  return <div className="text-xs text-red-600 font-semibold">🔴 Patente SCADUTA</div>
+                                } else if (days <= 30) {
+                                  return <div className="text-xs text-orange-600 font-semibold">⚠️ Scade tra {days}g</div>
+                                }
+                                return null
+                              })()
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">Nessuno skipper</span>
+                        )}
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-900">
-                          {booking.payment_method?.name || '⚠️ Non impostato'}
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-4">
+                          <div className="text-sm font-semibold text-gray-900">
+                            Totale: €{(booking.final_price || 0).toFixed(2)}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            Acconto: €{(booking.deposit_amount || 0).toFixed(2)}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            Saldo: €{(booking.balance_amount || 0).toFixed(2)}
+                          </div>
+                          <div className={`text-xs font-semibold ${daRicevere > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            Da ricevere: €{daRicevere.toFixed(2)}
+                          </div>
+                        </td>
+                      )}
+                      {isAdmin && (
+                        <td className="px-4 py-4">
+                          <div className="text-sm text-gray-900">
+                            {booking.deposit_payment_method?.name && (
+                              <div className="text-xs">Acconto: {booking.deposit_payment_method.name}</div>
+                            )}
+                            {booking.balance_payment_method?.name && (
+                              <div className="text-xs">Saldo: {booking.balance_payment_method.name}</div>
+                            )}
+                            {!booking.deposit_payment_method?.name && !booking.balance_payment_method?.name && (
+                              <span className="text-gray-400">⚠️ Non impostato</span>
+                            )}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-4 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          booking.booking_status?.code === 'confirmed' ? 'bg-green-100 text-green-800' :
                           booking.booking_status?.code === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          booking.booking_status?.code === 'completed' ? 'bg-blue-100 text-blue-800' :
-                          booking.booking_status?.code === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          booking.booking_status?.code === 'option' ? 'bg-orange-100 text-orange-800' :
+                          booking.booking_status?.code === 'confirmed' ? 'bg-green-100 text-green-800' :
+                          booking.booking_status?.code === 'cancelled' ? 'bg-fuchsia-100 text-fuchsia-800' :
+                          booking.booking_status?.code === 'completed' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
                           {booking.booking_status?.name || 'N/D'}
                         </span>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex gap-2">
+                        <div className="flex gap-1.5">
                           <Link
                             href={`/bookings/${booking.id}`}
-                            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                            className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
                           >
-                            👁️ Dettagli
+                            👁️
                           </Link>
-                          <button
-                            onClick={() => {
-                              setSelectedBooking(booking)
-                              setShowEditModal(true)
-                            }}
-                            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-                          >
-                            ✏️ Modifica
-                          </button>
-                          <button
-                            onClick={() => handleDelete(booking.id)}
-                            className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700"
-                          >
-                            🗑️ Elimina
-                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSelectedBooking(booking)
+                                  setShowEditModal(true)
+                                }}
+                                className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => handleDelete(booking.id)}
+                                className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                              >
+                                🗑️
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -362,7 +513,7 @@ export default function PrenotazioniPage() {
       </div>
 
       {/* Statistiche */}
-      {stats && (
+      {isAdmin && stats && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
           <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">📊 Statistiche</h2>
           

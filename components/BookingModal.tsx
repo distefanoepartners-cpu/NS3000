@@ -30,6 +30,7 @@ export default function BookingModal({
     booking_date: '',
     time_slot: '', // Input libero
     num_passengers: 1,
+    num_minors: 0, // NUOVO: Numero minori
     base_price: 0,
     final_price: 0,
     deposit_amount: 0,
@@ -38,8 +39,14 @@ export default function BookingModal({
     deposit_payment_method_id: '', // Nuovo
     balance_payment_method_id: '', // Nuovo
     caution_payment_method_id: '', // Nuovo per cauzione
+    deposit_payment_date: '', // Data pagamento acconto
+    balance_payment_date: '', // Data pagamento saldo
     booking_status_id: '',
-    notes: ''
+    notes: '',
+    // NUOVI CAMPI
+    booking_source: 'online', // 'online', 'in_person', 'supplier'
+    supplier_id: '', // ID fornitore (se source = supplier)
+    skipper_id: '' // ID skipper assegnato
   })
 
   const [options, setOptions] = useState({
@@ -48,7 +55,9 @@ export default function BookingModal({
     services: [],
     rentalServices: [],
     paymentMethods: [],
-    bookingStatuses: []
+    bookingStatuses: [],
+    suppliers: [],
+    skippers: [] // NUOVO
   })
 
   // Customer search
@@ -91,6 +100,7 @@ export default function BookingModal({
           booking_date: booking.booking_date || '',
           time_slot: booking.time_slot || '',
           num_passengers: booking.num_passengers || 1,
+          num_minors: booking.num_minors || 0, // NUOVO
           base_price: booking.base_price || 0,
           final_price: booking.final_price || 0,
           deposit_amount: booking.deposit_amount || 0,
@@ -99,8 +109,14 @@ export default function BookingModal({
           deposit_payment_method_id: booking.deposit_payment_method_id || '',
           balance_payment_method_id: booking.balance_payment_method_id || '',
           caution_payment_method_id: booking.caution_payment_method_id || '',
+          deposit_payment_date: booking.deposit_payment_date || '',
+          balance_payment_date: booking.balance_payment_date || '',
           booking_status_id: booking.booking_status_id || '',
-          notes: booking.notes || ''
+          notes: booking.notes || '',
+          // NUOVI CAMPI v1.4.0+
+          booking_source: booking.booking_source || 'online',
+          supplier_id: booking.supplier_id || '',
+          skipper_id: booking.skipper_id || ''
         })
         // Customer name will be set by loadOptions when options arrive
       } else {
@@ -127,7 +143,17 @@ export default function BookingModal({
       const rentalRes = await fetch('/api/rental-services')
       const rentalData = await rentalRes.json()
       
+      // NUOVO: Carica suppliers
+      const suppliersRes = await fetch('/api/suppliers')
+      const suppliersData = await suppliersRes.json()
+      
+      // NUOVO: Carica skippers
+      const skippersRes = await fetch('/api/skippers')
+      const skippersData = await skippersRes.json()
+      
       console.log('📦 rentalServices caricati:', rentalData)
+      console.log('📦 suppliers caricati:', suppliersData)
+      console.log('📦 skippers caricati:', skippersData)
       
       // Filter booking statuses - tutti gli stati disponibili
       const allowedStatuses = ['In Attesa', 'Confermata', 'Da Recuperare', 'Chiusa']
@@ -141,14 +167,17 @@ export default function BookingModal({
         services: data.services || [],
         rentalServices: rentalData || [],
         paymentMethods: data.paymentMethods || [],
-        bookingStatuses: filteredStatuses
+        bookingStatuses: filteredStatuses,
+        suppliers: suppliersData || [],
+        skippers: skippersData || [] // NUOVO
       }
       
       setOptions(newOptions)
       
       console.log('✅ Options settati:', {
         rentalServices_count: newOptions.rentalServices.length,
-        rentalServices: newOptions.rentalServices.map((s: any) => ({ id: s.id, name: s.name, type: s.service_type }))
+        rentalServices: newOptions.rentalServices.map((s: any) => ({ id: s.id, name: s.name, type: s.service_type })),
+        suppliers_count: newOptions.suppliers.length
       })
       
       // Set customer name for edit mode AFTER options are loaded
@@ -242,8 +271,15 @@ export default function BookingModal({
       booking_date: formData.booking_date,
       time_slot: formData.time_slot,
       boats_count: options.boats.length,
+      rentalServices_count: options.rentalServices.length,
       booking_mode: !!booking
     })
+    
+    // SKIP se rentalServices non ancora caricati
+    if (options.rentalServices.length === 0) {
+      console.log('⏭️ Skipping - rentalServices non ancora caricati')
+      return
+    }
     
     // Salta se è collective (calcolato separatamente x pax)
     const selectedService = options.rentalServices.find((s: any) => s.id === formData.service_id)
@@ -254,46 +290,117 @@ export default function BookingModal({
       return
     }
     
+    // VERIFICA CONDIZIONI
+    const hasBoatId = !!formData.boat_id
+    const hasDate = !!formData.booking_date
+    const hasTimeSlot = !!formData.time_slot
+    const hasBoats = options.boats.length > 0
+    const isNewBooking = !booking
+    
+    console.log('🔍 CHECK CONDIZIONI:', {
+      hasBoatId,
+      hasDate,
+      hasTimeSlot,
+      hasBoats,
+      isNewBooking,
+      TUTTE_OK: hasBoatId && hasDate && hasTimeSlot && hasBoats && isNewBooking
+    })
+    
     if (
       formData.boat_id && 
       formData.booking_date &&
       formData.time_slot &&
-      options.boats.length > 0 &&
-      !booking // Solo per nuove prenotazioni
+      formData.service_id &&
+      options.boats.length > 0
+      // Rimosso !booking per permettere ricalcolo anche in modifica
     ) {
       const selectedBoat = options.boats.find((b: any) => b.id === formData.boat_id)
       console.log('🚤 Selected Boat:', selectedBoat?.name)
       
       if (selectedBoat) {
         let price = 0
-       const month = new Date(formData.booking_date).getMonth() + 1
-let price = 0
-
-          // Determina se è rental o charter
-          const isRental = selectedService?.service_type === 'rental'
-          const pricePrefix = isRental ? 'price_rental' : 'price_charter'
-
-          // Determina se è half day o full day
-          const isFullDay = formData.time_slot === 'full_day'
-
-    // Calcola prezzo in base a mese e fascia
-      if ([4, 5, 10].includes(month)) {
-        price = isFullDay 
-          ? (selectedBoat[`${pricePrefix}_apr_may_oct_full_day`] || 0)
-          : (selectedBoat[`${pricePrefix}_apr_may_oct_half_day`] || 0)
-        } else if (month === 6) { // Giugno
+        const month = new Date(formData.booking_date).getMonth() + 1 // 1-12
+        
+        // Determina se è half day o full day
+        const isFullDay = formData.time_slot === 'full_day'
+        console.log('📅 Month:', month, 'IsFullDay:', isFullDay)
+        
+        // Determina se è rental o tour/charter
+        const isRental = selectedService?.service_type === 'rental'
+        
+        console.log('🏷️ Tipo servizio:', isRental ? 'RENTAL (Locazione)' : 'CHARTER/TOUR')
+        
+        // PER RENTAL (Locazione): prezzo dalla barca
+        if (isRental) {
+          // Calcola prezzo in base a mese e fascia
+          if ([4, 5, 10].includes(month)) { // Apr/Mag/Ott
+            price = isFullDay 
+              ? (selectedBoat.price_charter_apr_may_oct_full_day || 0)
+              : (selectedBoat.price_charter_apr_may_oct_half_day || 0)
+          } else if (month === 6) { // Giugno
             price = isFullDay
-            ? (selectedBoat[`${pricePrefix}_june_full_day`] || 0)
-            : (selectedBoat[`${pricePrefix}_june_half_day`] || 0)
+              ? (selectedBoat.price_charter_june_full_day || 0)
+              : (selectedBoat.price_charter_june_half_day || 0)
           } else if ([7, 9].includes(month)) { // Luglio/Settembre
             price = isFullDay
-            ? (selectedBoat[`${pricePrefix}_july_sept_full_day`] || 0)
-            : (selectedBoat[`${pricePrefix}_july_sept_half_day`] || 0)
+              ? (selectedBoat.price_charter_july_sept_full_day || 0)
+              : (selectedBoat.price_charter_july_sept_half_day || 0)
           } else if (month === 8) { // Agosto
             price = isFullDay
-            ? (selectedBoat[`${pricePrefix}_august_full_day`] || 0)
-            : (selectedBoat[`${pricePrefix}_august_half_day`] || 0)
+              ? (selectedBoat.price_charter_august_full_day || 0)
+              : (selectedBoat.price_charter_august_half_day || 0)
           }
+          console.log('💰 Prezzo LOCAZIONE dalla barca:', price)
+        } else {
+          // PER TOUR/CHARTER: prezzo dalla tabella boat_rental_services
+          console.log('🔍 Caricamento prezzo da boat_services...')
+          
+          // Chiamata API per ottenere i servizi della barca
+          fetch(`/api/boats/${formData.boat_id}/services`)
+            .then(res => res.json())
+            .then(boatServices => {
+              console.log('📋 Boat services:', boatServices)
+              
+              // Trova il servizio selezionato
+              const servicePrice = boatServices.find((bs: any) => 
+                bs.service_id === formData.service_id
+              )
+              
+              if (servicePrice) {
+                // Determina prezzo in base al mese
+                let priceFromService = 0
+                if ([4, 5, 10].includes(month)) {
+                  priceFromService = servicePrice.price_apr_may_oct || 0
+                } else if (month === 6) {
+                  priceFromService = servicePrice.price_june || 0
+                } else if ([7, 9].includes(month)) {
+                  priceFromService = servicePrice.price_july_sept || 0
+                } else if (month === 8) {
+                  priceFromService = servicePrice.price_august || 0
+                }
+                
+                console.log('💰 Prezzo TOUR da boat_services:', priceFromService)
+                
+                if (priceFromService > 0) {
+                  setFormData(prev => ({
+                    ...prev,
+                    base_price: priceFromService,
+                    final_price: priceFromService
+                  }))
+                  toast.success(`Prezzo automatico: €${priceFromService}`)
+                } else {
+                  console.warn('⚠️ Prezzo tour non configurato per questo periodo')
+                }
+              } else {
+                console.warn('⚠️ Servizio non configurato per questa barca')
+              }
+            })
+            .catch(err => {
+              console.error('❌ Errore caricamento boat_services:', err)
+            })
+          
+          return // Esci qui per tour, il prezzo viene settato nella callback async
+        }
           
           console.log('💰 Prezzo dalla BARCA:', price)
         
@@ -322,6 +429,14 @@ let price = 0
           }))
         }
       }
+    } else {
+      console.warn('⚠️ CONDIZIONI NON SODDISFATTE per calcolo prezzi:', {
+        boat_id: formData.boat_id,
+        booking_date: formData.booking_date,
+        time_slot: formData.time_slot,
+        boats_length: options.boats.length,
+        is_editing: !!booking
+      })
     }
   }, [formData.boat_id, formData.service_id, formData.booking_date, formData.time_slot, options.boats, options.rentalServices, booking])
 
@@ -337,8 +452,7 @@ let price = 0
     if (
       formData.service_id && 
       formData.num_passengers > 0 &&
-      options.rentalServices.length > 0 &&
-      !booking
+      options.rentalServices.length > 0
     ) {
       const selectedService = options.rentalServices.find((s: any) => s.id === formData.service_id)
       
@@ -534,19 +648,51 @@ let price = 0
                       <option value="">Seleziona...</option>
                       {options.boats
                         .filter((b: any) => {
-                          // Filtra barche in base al servizio selezionato
-                          if (!formData.service_id) return true
-                          
-                          const selectedService = options.rentalServices.find((s: any) => s.id === formData.service_id)
-                          if (!selectedService) return true
-                          
-                          // Se servizio è rental → solo barche con has_rental
-                          if (selectedService.service_type === 'rental') {
-                            return b.has_rental === true
+                          // Se c'è un servizio selezionato, filtra in base a quello
+                          if (formData.service_id) {
+                            const selectedService = options.rentalServices.find((s: any) => s.id === formData.service_id)
+                            if (!selectedService) return true
+                            
+                            console.log('🚤 FILTRO BARCHE (da servizio):', {
+                              barca: b.name,
+                              has_rental: b.has_rental,
+                              has_charter: b.has_charter,
+                              servizio: selectedService.name,
+                              service_type: selectedService.service_type
+                            })
+                            
+                            // LOGICA CORRETTA: has_rental = LOCAZIONE, has_charter = TOUR PRIVATI
+                            // Se servizio è rental (LOCAZIONE) → solo barche con has_rental
+                            if (selectedService.service_type === 'rental') {
+                              const show = b.has_rental === true
+                              console.log(`  → ${show ? '✅' : '❌'} ${b.name} (has_rental=${b.has_rental})`)
+                              return show
+                            }
+                            
+                            // Se servizio è tour/transfer/collective → solo barche con has_charter o has_collective
+                            const show = b.has_charter === true || b.has_collective === true
+                            console.log(`  → ${show ? '✅' : '❌'} ${b.name} (has_charter=${b.has_charter}, has_collective=${b.has_collective})`)
+                            return show
                           }
                           
-                          // Se servizio è tour/transfer/collective → solo barche con has_charter
-                          return b.has_charter === true
+                          // Se NON c'è servizio, filtra in base al service_type
+                          if (formData.service_type) {
+                            console.log('🚤 FILTRO BARCHE (da tipo):', {
+                              barca: b.name,
+                              tipo: formData.service_type,
+                              has_rental: b.has_rental,
+                              has_charter: b.has_charter
+                            })
+                            
+                            // LOGICA CORRETTA: rental = LOCAZIONE usa has_rental, charter/tour usa has_charter
+                            if (formData.service_type === 'rental') {
+                              return b.has_rental === true
+                            }
+                            return b.has_charter === true || b.has_collective === true
+                          }
+                          
+                          // Default: mostra tutte
+                          return true
                         })
                         .map((b: any) => (
                           <option key={b.id} value={b.id}>
@@ -566,8 +712,8 @@ let price = 0
                     onChange={(e) => setFormData({ ...formData, service_type: e.target.value, service_id: '' })}
                     className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
-                    <option value="charter">Noleggio (con skipper)</option>
-                    <option value="rental">Locazione (senza skipper)</option>
+                    <option value="charter">Noleggio </option>
+                    <option value="rental">Locazione </option>
                   </select>
                 </div>
 
@@ -623,9 +769,10 @@ let price = 0
                       className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     >
                       <option value="">Seleziona fascia...</option>
+                      <option value="full_day">☀️ Full Day </option>
                       <option value="morning">🌅 Half Day Mattina</option>
                       <option value="afternoon">🌇 Half Day Pomeriggio</option>
-                      <option value="full_day">☀️ Full Day (Giornata Intera)</option>
+                      <option value="evening">🌙 Serale</option>
                       <option value="custom">⏰ Personalizzata</option>
                     </select>
                     
@@ -653,6 +800,153 @@ let price = 0
                       className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Di cui minori
+                      <span className="text-xs text-gray-500 ml-1">(per dotazioni sicurezza)</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={formData.num_passengers}
+                      value={formData.num_minors}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0
+                        // Non può essere maggiore del totale passeggeri
+                        const minors = Math.min(value, formData.num_passengers)
+                        setFormData({ ...formData, num_minors: minors })
+                      }}
+                      className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                {/* NUOVO - Origine Prenotazione */}
+                <div className="col-span-2 bg-purple-50 rounded-lg p-3 border border-purple-200">
+                  <h3 className="font-semibold text-gray-900 mb-2 text-sm">
+                    📍 Origine Prenotazione
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Canale</label>
+                      <select
+                        value={formData.booking_source}
+                        onChange={(e) => {
+                          setFormData({ 
+                            ...formData, 
+                            booking_source: e.target.value,
+                            supplier_id: e.target.value !== 'supplier' ? '' : formData.supplier_id
+                          })
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="online">🌐 Online (Sito Web)</option>
+                        <option value="in_person">🏪 In Presenza (Ufficio)</option>
+                        <option value="supplier">🏢 Fornitore/Partner</option>
+                      </select>
+                    </div>
+                    
+                    {/* Dropdown Fornitore - visibile solo se source = supplier */}
+                    {formData.booking_source === 'supplier' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Fornitore *</label>
+                        <select
+                          value={formData.supplier_id}
+                          onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                          required={formData.booking_source === 'supplier'}
+                        >
+                          <option value="">Seleziona fornitore...</option>
+                          {options.suppliers
+                            .filter((s: any) => s.is_active)
+                            .map((supplier: any) => (
+                              <option key={supplier.id} value={supplier.id}>
+                                {supplier.name}
+                                {supplier.commission_percentage > 0 && (
+                                  ` (${supplier.commission_percentage}% comm.)`
+                                )}
+                              </option>
+                            ))
+                          }
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* NUOVO - Skipper Assegnato */}
+                <div className="col-span-2 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                  <h3 className="font-semibold text-gray-900 mb-2 text-sm">
+                    ⚓ Skipper Assegnato
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Skipper</label>
+                      <select
+                        value={formData.skipper_id}
+                        onChange={(e) => setFormData({ ...formData, skipper_id: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="">Nessuno skipper</option>
+                        {options.skippers
+                          .filter((s: any) => s.is_active)
+                          .map((skipper: any) => {
+                            const isExpired = skipper.license_expiry_date && 
+                              new Date(skipper.license_expiry_date) < new Date()
+                            const isExpiring = skipper.license_expiry_date && 
+                              new Date(skipper.license_expiry_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                            
+                            let statusIcon = '✅'
+                            if (isExpired) statusIcon = '🔴'
+                            else if (isExpiring) statusIcon = '🟡'
+                            
+                            return (
+                              <option key={skipper.id} value={skipper.id}>
+                                {statusIcon} {skipper.first_name} {skipper.last_name}
+                                {skipper.license_number && ` - ${skipper.license_number}`}
+                              </option>
+                            )
+                          })
+                        }
+                      </select>
+                    </div>
+                    
+                    {/* Info skipper selezionato */}
+                    {formData.skipper_id && (() => {
+                      const selectedSkipper = options.skippers.find((s: any) => s.id === formData.skipper_id)
+                      if (!selectedSkipper) return null
+                      
+                      const isExpired = selectedSkipper.license_expiry_date && 
+                        new Date(selectedSkipper.license_expiry_date) < new Date()
+                      const isExpiring = selectedSkipper.license_expiry_date && 
+                        new Date(selectedSkipper.license_expiry_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                      
+                      return (
+                        <div className="text-xs space-y-1">
+                          {selectedSkipper.phone && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-600">📱</span>
+                              <span>{selectedSkipper.phone}</span>
+                            </div>
+                          )}
+                          {selectedSkipper.license_expiry_date && (
+                            <div className={`flex items-center gap-1 ${isExpired ? 'text-red-600' : isExpiring ? 'text-yellow-600' : 'text-gray-600'}`}>
+                              <span>📋</span>
+                              <span>
+                                Scadenza: {new Date(selectedSkipper.license_expiry_date).toLocaleDateString('it-IT')}
+                                {isExpired && ' ⚠️ SCADUTA'}
+                                {!isExpired && isExpiring && ' ⚠️ IN SCADENZA'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </div>
                 </div>
 
                 {/* Stato Prenotazione */}
@@ -672,6 +966,38 @@ let price = 0
                   </select>
                 </div>
 
+                {/* NUOVO - Skipper */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ⚓ Skipper
+                  </label>
+                  <select
+                    value={formData.skipper_id}
+                    onChange={(e) => setFormData({ ...formData, skipper_id: e.target.value })}
+                    className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  >
+                    <option value="">Nessuno skipper</option>
+                    {options.skippers
+                      .filter((s: any) => s.is_active)
+                      .map((skipper: any) => (
+                        <option key={skipper.id} value={skipper.id}>
+                          {skipper.first_name} {skipper.last_name}
+                          {skipper.license_expiry_date && (
+                            (() => {
+                              const expiry = new Date(skipper.license_expiry_date)
+                              const today = new Date()
+                              const days = Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                              if (days < 0) return ' 🔴 PATENTE SCADUTA'
+                              if (days <= 30) return ` ⚠️ Scade tra ${days}g`
+                              return ''
+                            })()
+                          )}
+                        </option>
+                      ))
+                    }
+                  </select>
+                </div>
+
                 {/* Prezzi */}
                 <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                   <h3 className="font-semibold text-gray-900 mb-3 text-sm">
@@ -686,6 +1012,7 @@ let price = 0
                         step="0.01"
                         value={formData.base_price}
                         onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 })}
+                        onFocus={(e) => e.target.select()}
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                         disabled={calculatingPrice}
                       />
@@ -698,13 +1025,14 @@ let price = 0
                         step="0.01"
                         value={formData.final_price}
                         onChange={(e) => setFormData({ ...formData, final_price: parseFloat(e.target.value) || 0 })}
+                        onFocus={(e) => e.target.select()}
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                       />
                     </div>
                   </div>
 
-                  {/* Acconto + Metodo */}
-                  <div className="grid grid-cols-2 gap-3 mb-3">
+                  {/* Acconto + Metodo + Data */}
+                  <div className="grid grid-cols-3 gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Acconto (€)</label>
                       <input
@@ -712,11 +1040,12 @@ let price = 0
                         step="0.01"
                         value={formData.deposit_amount}
                         onChange={(e) => setFormData({ ...formData, deposit_amount: parseFloat(e.target.value) || 0 })}
+                        onFocus={(e) => e.target.select()}
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Metodo Acconto</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Metodo</label>
                       <select
                         value={formData.deposit_payment_method_id}
                         onChange={(e) => setFormData({ ...formData, deposit_payment_method_id: e.target.value })}
@@ -733,10 +1062,19 @@ let price = 0
                         }
                       </select>
                     </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Data</label>
+                      <input
+                        type="date"
+                        value={formData.deposit_payment_date}
+                        onChange={(e) => setFormData({ ...formData, deposit_payment_date: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
                   </div>
 
-                  {/* Saldo + Metodo */}
-                  <div className="grid grid-cols-2 gap-3 mb-3">
+                  {/* Saldo + Metodo + Data */}
+                  <div className="grid grid-cols-3 gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Saldo (€)</label>
                       <input
@@ -744,11 +1082,12 @@ let price = 0
                         step="0.01"
                         value={formData.balance_amount}
                         onChange={(e) => setFormData({ ...formData, balance_amount: parseFloat(e.target.value) || 0 })}
+                        onFocus={(e) => e.target.select()}
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Metodo Saldo</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Metodo</label>
                       <select
                         value={formData.balance_payment_method_id}
                         onChange={(e) => setFormData({ ...formData, balance_payment_method_id: e.target.value })}
@@ -764,6 +1103,15 @@ let price = 0
                           ))
                         }
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Data</label>
+                      <input
+                        type="date"
+                        value={formData.balance_payment_date}
+                        onChange={(e) => setFormData({ ...formData, balance_payment_date: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      />
                     </div>
                   </div>
 
@@ -783,6 +1131,7 @@ let price = 0
                             step="0.01"
                             value={formData.caution_amount}
                             onChange={(e) => setFormData({ ...formData, caution_amount: parseFloat(e.target.value) || 0 })}
+                            onFocus={(e) => e.target.select()}
                             className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                             placeholder="Importo personalizzato"
                           />

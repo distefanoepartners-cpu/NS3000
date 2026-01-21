@@ -238,7 +238,12 @@ export async function POST(request: Request) {
     }
     
     console.log(`Successfully inserted ${totalInserted} customers`)
-    
+    console.log(`📊 Riepilogo import:`)
+console.log(`- Totale nel file: ${customers.length}`)
+console.log(`- Batch elaborati: ${batches.length}`)
+console.log(`- Clienti inseriti: ${totalInserted}`)
+console.log(`- Skipped/duplicati: ${customers.length - totalInserted}`)
+
     return NextResponse.json({
       success: true,
       imported: totalInserted,

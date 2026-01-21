@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, addWeeks } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { toast } from 'sonner'
 import BookingModal from '@/components/BookingModal'
 import UnavailabilityModal from '@/components/UnavailabilityModal'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function PlanningPage() {
-  const [viewMode, setViewMode] = useState<'week' | 'month'>('month')
+  const { isAdmin, isStaff } = useAuth()
   const [date, setDate] = useState(new Date())
   const [boats, setBoats] = useState<any[]>([])
   const [bookings, setBookings] = useState<any[]>([])
@@ -23,19 +24,14 @@ export default function PlanningPage() {
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
   const [selectedUnavailability, setSelectedUnavailability] = useState<any>(null)
 
-  const days = viewMode === 'week'
-    ? eachDayOfInterval({
-        start: startOfWeek(date, { locale: it, weekStartsOn: 1 }),
-        end: endOfWeek(date, { locale: it, weekStartsOn: 1 })
-      })
-    : eachDayOfInterval({
-        start: startOfMonth(date),
-        end: endOfMonth(date)
-      })
+  const days = eachDayOfInterval({
+    start: startOfMonth(date),
+    end: endOfMonth(date)
+  })
 
   useEffect(() => {
     loadData()
-  }, [date, viewMode])
+  }, [date])
 
   async function loadData() {
     try {
@@ -68,6 +64,35 @@ export default function PlanningPage() {
   }
 
   function handleCellClick(boat: any, day: Date, e: React.MouseEvent) {
+    // Blocca se utente staff (solo visualizzazione)
+    if (isStaff) {
+      toast.info('👁️ Modalità Solo Visualizzazione - Non puoi creare prenotazioni')
+      return
+    }
+    
+    // Calcola disponibilità fasce orarie
+    const dayStr = format(day, 'yyyy-MM-dd')
+    const dayBookings = bookings.filter(
+      (b) => b.boat_id === boat.id && b.booking_date === dayStr
+    )
+    
+    const hasFullDay = dayBookings.some(b => b.time_slot === 'full_day')
+    const hasMorning = dayBookings.some(b => b.time_slot === 'morning')
+    const hasAfternoon = dayBookings.some(b => b.time_slot === 'afternoon')
+    const hasEvening = dayBookings.some(b => b.time_slot === 'evening')
+    
+    // Se c'è full day o indisponibilità, non aprire il menu
+    const dayUnavail = unavailabilities.find(
+      (u) => u.boat_id === boat.id && dayStr >= u.date_from && dayStr <= u.date_to
+    )
+    
+    // Blocca solo se: full day OPPURE tutte e 3 le fasce OPPURE indisponibilità
+    if (hasFullDay || dayUnavail || (hasMorning && hasAfternoon && hasEvening)) {
+      toast.info('Questa giornata è completamente occupata')
+      return
+    }
+    
+    // Salva info disponibilità per il modal
     setSelectedBoat(boat)
     setSelectedDate(day)
     setMenuPosition({ x: e.clientX, y: e.clientY })
@@ -87,11 +112,21 @@ export default function PlanningPage() {
   }
 
   function handleBookingClick(booking: any) {
+    // Per staff: mostra solo i dettagli, non consente modifica
+    if (isStaff) {
+      toast.info('👁️ Solo Visualizzazione - Vai su Prenotazioni per vedere i dettagli')
+      return
+    }
     setSelectedBooking(booking)
     setShowBookingModal(true)
   }
 
   function handleUnavailabilityClick(unavail: any) {
+    // Blocca modifica indisponibilità per staff
+    if (isStaff) {
+      toast.info('👁️ Solo Visualizzazione - Non puoi modificare indisponibilità')
+      return
+    }
     setSelectedUnavailability(unavail)
     setShowUnavailabilityModal(true)
   }
@@ -111,27 +146,19 @@ export default function PlanningPage() {
   }
 
   function navigatePrev() {
-    if (viewMode === 'week') {
-      setDate(addWeeks(date, -1))
-    } else {
-      setDate(addMonths(date, -1))
-    }
+    setDate(addMonths(date, -1))
   }
 
   function navigateNext() {
-    if (viewMode === 'week') {
-      setDate(addWeeks(date, 1))
-    } else {
-      setDate(addMonths(date, 1))
-    }
+    setDate(addMonths(date, 1))
   }
 
   const getStatusColor = (code: string) => {
     switch (code) {
-      case 'confirmed': return 'bg-green-500'
-      case 'pending': return 'bg-yellow-500'
-      case 'completed': return 'bg-red-500' // Chiusa - rosso
+      case 'pending': return 'bg-yellow-500' // In Attesa - giallo
+      case 'confirmed': return 'bg-green-500' // Confermata - verde
       case 'cancelled': return 'bg-fuchsia-500' // Da Recuperare - fucsia
+      case 'completed': return 'bg-red-500' // Chiusa - rosso
       default: return 'bg-gray-500'
     }
   }
@@ -145,77 +172,53 @@ export default function PlanningPage() {
   }
 
   return (
-    <div className="p-2 md:p-4 lg:p-8 h-screen flex flex-col">
-      {/* Header - Compact on mobile */}
+    <div className="p-2 md:p-2 lg:p-2 h-screen flex flex-col">
+      {/* Header */}
       <div className="mb-4 md:mb-6">
-        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
-          Planning {viewMode === 'week' ? 'Settimanale' : 'Mensile'}
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-4">
+          Planning Mensile
         </h1>
-        <p className="text-sm md:text-base text-gray-600 mb-3">
-          {viewMode === 'week' 
-            ? format(days[0], 'dd MMM', { locale: it }) + ' - ' + format(days[6], 'dd MMM yyyy', { locale: it })
-            : format(date, 'MMMM yyyy', { locale: it })
-          }
-        </p>
 
-        {/* View Toggle + Navigation - Stack on mobile */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center">
-          {/* View Toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('week')}
-              className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
-                viewMode === 'week'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Settimana
-            </button>
-            <button
-              onClick={() => setViewMode('month')}
-              className={`flex-1 sm:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
-                viewMode === 'month'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Mese
-            </button>
+        {/* Month/Year Controls + Navigation */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+          {/* Month/Year + Label */}
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-gray-900 uppercase">
+              {format(date, 'MMMM', { locale: it })}
+            </h2>
+            
+            <div className="flex gap-2">
+              <select
+                value={date.getMonth()}
+                onChange={(e) => {
+                  const newDate = new Date(date)
+                  newDate.setMonth(parseInt(e.target.value))
+                  setDate(newDate)
+                }}
+                className="px-3 py-2 border-2 border-blue-500 rounded-lg text-sm bg-blue-50 font-semibold text-blue-900 hover:bg-blue-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-600"
+              >
+                {['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'].map((m, i) => (
+                  <option key={i} value={i}>{m}</option>
+                ))}
+              </select>
+              
+              <select
+                value={date.getFullYear()}
+                onChange={(e) => {
+                  const newDate = new Date(date)
+                  newDate.setFullYear(parseInt(e.target.value))
+                  setDate(newDate)
+                }}
+                className="px-3 py-2 border-2 border-blue-500 rounded-lg text-sm bg-blue-50 font-semibold text-blue-900 hover:bg-blue-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-600"
+              >
+                {[2024, 2025, 2026, 2027].map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
           </div>
-
-          {/* Navigation */}
-           {/* Month/Year Selector */}
-<div className="flex gap-2">
-  <select
-    value={date.getMonth()}
-    onChange={(e) => {
-      const newDate = new Date(date)
-      newDate.setMonth(parseInt(e.target.value))
-      setDate(newDate)
-    }}
-    className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-  >
-    {['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'].map((m, i) => (
-      <option key={i} value={i}>{m}</option>
-    ))}
-  </select>
-  
-  <select
-    value={date.getFullYear()}
-    onChange={(e) => {
-      const newDate = new Date(date)
-      newDate.setFullYear(parseInt(e.target.value))
-      setDate(newDate)
-    }}
-    className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-  >
-    {[2024, 2025, 2026, 2027].map(year => (
-      <option key={year} value={year}>{year}</option>
-    ))}
-  </select>
-</div>
           
+          {/* Navigation Buttons */}
           <div className="flex gap-2">
             <button
               onClick={navigatePrev}
@@ -271,17 +274,17 @@ export default function PlanningPage() {
           <table className="w-full border-collapse min-w-[600px]">
             <thead className="sticky top-0 bg-gray-50 z-10">
               <tr>
-                <th className="border border-gray-200 p-2 md:p-3 text-left font-semibold text-gray-900 bg-gray-100 w-24 md:w-32 text-xs md:text-sm">
-                  Barca
+                <th className="border border-gray-200 p-2 md:p-3 text-left font-semibold text-gray-900 bg-gray-100 w-28 md:w-36 text-xs md:text-sm">
+                  Flotta
                 </th>
                 {days.map((day) => (
                   <th
                     key={day.toISOString()}
-                    className={`border border-gray-200 p-1 text-center font-semibold w-8 md:w-10 ${
+                    className={`border border-gray-200 p-1 text-center font-semibold w-10 md:w-14 ${
                       isSameDay(day, new Date()) ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
                     }`}
                   >
-                    <div className="text-xs">{format(day, 'dd', { locale: it })}</div>
+                    <div className="text-xs md:text-sm">{format(day, 'dd', { locale: it })}</div>
                   </th>
                 ))}
               </tr>
@@ -306,11 +309,27 @@ export default function PlanningPage() {
                         dayStr <= u.date_to
                     )
 
+                    // Separa prenotazioni per fascia oraria
+                    const morningBooking = dayBookings.find(b => b.time_slot === 'morning')
+                    const afternoonBooking = dayBookings.find(b => b.time_slot === 'afternoon')
+                    const eveningBooking = dayBookings.find(b => b.time_slot === 'evening')
+                    const fullDayBooking = dayBookings.find(b => b.time_slot === 'full_day')
+                    
+                    // Altre prenotazioni (custom time slots o extras)
+                    const otherBookings = dayBookings.filter(b => 
+                      !['morning', 'afternoon', 'evening', 'full_day'].includes(b.time_slot)
+                    )
+
                     // Prepara testo tooltip
                     const tooltipText = dayBookings.length > 0
-                      ? dayBookings.map(b => 
-                          `${b.customer?.first_name} ${b.customer?.last_name} - €${b.final_price} - ${b.booking_status?.name || 'In Attesa'}`
-                        ).join('\n')
+                      ? dayBookings.map(b => {
+                          const slot = b.time_slot === 'morning' ? '🌅 Mattina' : 
+                                      b.time_slot === 'afternoon' ? '🌇 Pomeriggio' :
+                                      b.time_slot === 'evening' ? '🌙 Sera' :
+                                      b.time_slot === 'full_day' ? '☀️ Full Day' : 
+                                      '🕐 ' + (b.time_slot || 'Custom')
+                          return `${slot} - ${b.customer?.first_name} ${b.customer?.last_name} - €${b.final_price}`
+                        }).join('\n')
                       : dayUnavail 
                         ? dayUnavail.reason || 'Indisponibile'
                         : ''
@@ -318,39 +337,110 @@ export default function PlanningPage() {
                     return (
                       <td
                         key={day.toISOString()}
-                        className="border border-gray-200 p-0.5 align-middle cursor-pointer hover:bg-blue-50 transition-colors h-12"
+                        className="border border-gray-200 p-0.5 align-middle cursor-pointer hover:bg-blue-50 transition-colors h-16"
                         onClick={(e) => handleCellClick(boat, day, e)}
                         title={tooltipText}
                       >
-                        <div className="space-y-0.5 min-h-[2rem]">
-                          {/* Indisponibilità - solo icona */}
-                          {dayUnavail && (
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleUnavailabilityClick(dayUnavail)
-                              }}
-                              className="bg-gray-400 bg-opacity-30 rounded w-full h-8 flex items-center justify-center cursor-pointer hover:bg-opacity-50 border border-dashed border-gray-500"
-                            >
-                              <span className="text-sm">🚫</span>
+                        {/* Indisponibilità - occupa tutta la cella */}
+                        {dayUnavail ? (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleUnavailabilityClick(dayUnavail)
+                            }}
+                            className="bg-gray-400 bg-opacity-30 rounded w-full h-full flex items-center justify-center cursor-pointer hover:bg-opacity-50 border border-dashed border-gray-500"
+                          >
+                            <span className="text-sm">🚫</span>
+                          </div>
+                        ) : fullDayBooking ? (
+                          /* Full Day - occupa tutta la cella */
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleBookingClick(fullDayBooking)
+                            }}
+                            className={`${getStatusColor(
+                              fullDayBooking.booking_status?.code || 'pending'
+                            )} rounded w-full h-full cursor-pointer hover:opacity-80 shadow-sm transition-opacity flex items-center justify-center`}
+                          >
+                            <span className="text-xs opacity-70">☀️</span>
+                          </div>
+                        ) : (
+                          /* Diviso in 3 fasce: Mattina / Pomeriggio / Sera */
+                          <div className="flex gap-0.5 h-full">
+                            {/* Mattina - 1/3 sinistra */}
+                            <div className="flex-1">
+                              {morningBooking ? (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleBookingClick(morningBooking)
+                                  }}
+                                  className={`${getStatusColor(
+                                    morningBooking.booking_status?.code || 'pending'
+                                  )} rounded-l w-full h-full cursor-pointer hover:opacity-80 shadow-sm transition-opacity flex items-center justify-center`}
+                                >
+                                  <span className="text-xs opacity-70">🌅</span>
+                                </div>
+                              ) : (
+                                <div className="w-full h-full bg-gray-50 rounded-l"></div>
+                              )}
                             </div>
-                          )}
-                          
-                          {/* Prenotazioni - solo colore senza testo */}
-                          {dayBookings.map((booking) => (
-                            <div
-                              key={booking.id}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleBookingClick(booking)
-                              }}
-                              className={`${getStatusColor(
-                                booking.booking_status?.code || 'pending'
-                              )} rounded w-full h-8 cursor-pointer hover:opacity-80 shadow-sm transition-opacity`}
-                            >
+                            
+                            {/* Pomeriggio - 1/3 centro */}
+                            <div className="flex-1">
+                              {afternoonBooking ? (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleBookingClick(afternoonBooking)
+                                  }}
+                                  className={`${getStatusColor(
+                                    afternoonBooking.booking_status?.code || 'pending'
+                                  )} w-full h-full cursor-pointer hover:opacity-80 shadow-sm transition-opacity flex items-center justify-center`}
+                                >
+                                  <span className="text-xs opacity-70">🌇</span>
+                                </div>
+                              ) : (
+                                <div className="w-full h-full bg-gray-50"></div>
+                              )}
                             </div>
-                          ))}
-                        </div>
+
+                            {/* Sera/Custom - 1/3 destra */}
+                            <div className="flex-1">
+                              {eveningBooking ? (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleBookingClick(eveningBooking)
+                                  }}
+                                  className={`${getStatusColor(
+                                    eveningBooking.booking_status?.code || 'pending'
+                                  )} rounded-r w-full h-full cursor-pointer hover:opacity-80 shadow-sm transition-opacity flex items-center justify-center`}
+                                >
+                                  <span className="text-xs opacity-70">🌙</span>
+                                </div>
+                              ) : otherBookings.length > 0 ? (
+                                /* Badge per altre prenotazioni custom */
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleBookingClick(otherBookings[0])
+                                  }}
+                                  className={`${getStatusColor(
+                                    otherBookings[0].booking_status?.code || 'pending'
+                                  )} rounded-r w-full h-full cursor-pointer hover:opacity-80 shadow-sm transition-opacity flex items-center justify-center`}
+                                >
+                                  <span className="text-xs font-bold">
+                                    {otherBookings.length > 1 ? `+${otherBookings.length}` : '🕐'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="w-full h-full bg-gray-50 rounded-r"></div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </td>
                     )
                   })}

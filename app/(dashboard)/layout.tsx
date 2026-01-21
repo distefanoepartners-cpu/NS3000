@@ -4,32 +4,40 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { LogOut, Menu, X, Ship, Anchor, Calendar, MapPin, Users, Building2, BarChart3 } from 'lucide-react'
+import { LogOut, Menu, X, Ship, Anchor, Calendar, MapPin, Users, Building2, BarChart3, UserCircle, Settings } from 'lucide-react'
+import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import NotificationManager from '@/components/NotificationManager'
 
-export default function DashboardLayout({
+function DashboardLayoutContent({
   children,
 }: {
   children: React.ReactNode
 }) {
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { user, isAdmin, logout } = useAuth()
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/login')
-    router.refresh()
+    await logout()
   }
 
-  const menuItems = [
-  { href: '/', label: 'Dashboard', icon: BarChart3 },  // ← AGGIUNGI QUESTA
-  { href: '/boats', label: 'Barche', icon: Ship },
-  { href: '/services', label: 'Servizi', icon: Anchor },
-  { href: '/bookings', label: 'Prenotazioni', icon: Calendar },
-  { href: '/planning', label: 'Planning', icon: MapPin },
-  { href: '/customers', label: 'Clienti', icon: Users },
-  { href: '/suppliers', label: 'Fornitori', icon: Building2 },
-  { href: '/reports', label: 'Reports', icon: BarChart3 },
-]
+  // Menu items dinamici basati sul ruolo
+  const allMenuItems = [
+    { href: '/', label: 'Dashboard', icon: BarChart3, roles: ['admin', 'staff'] },
+    { href: '/bookings', label: 'Prenotazioni', icon: Calendar, roles: ['admin', 'staff'] },
+    { href: '/boats', label: 'Flotta', icon: Ship, roles: ['admin'] },
+    { href: '/services', label: 'Servizi', icon: Anchor, roles: ['admin'] },
+    { href: '/skippers', label: 'Skipper', icon: UserCircle, roles: ['admin'] },
+    { href: '/customers', label: 'Clienti', icon: Users, roles: ['admin'] },
+    { href: '/suppliers', label: 'Fornitori', icon: Building2, roles: ['admin'] },
+    { href: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin'] },
+    { href: '/users', label: 'Crew', icon: Settings, roles: ['admin'] },
+  ]
+
+  // Filtra menu basato sul ruolo
+  const menuItems = allMenuItems.filter(item => 
+    item.roles.includes(user?.role || 'staff')
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -37,13 +45,21 @@ export default function DashboardLayout({
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-           {/* Logo */}
-          <Link href="/">
-            <div className="flex items-center gap-3 cursor-pointer">
-              <img src="/icon-192.png" alt="NS3000" className="h-10 w-10" />
-              <h1 className="text-xl font-bold text-blue-600">NS3000 RENT</h1>
-            </div>
-          </Link>
+            {/* Logo */}
+            <Link href="/">
+              <div className="flex items-center gap-3 cursor-pointer">
+                <img src="/icon-192.png" alt="NS3000" className="h-10 w-10" />
+                <div>
+                  <h1 className="text-xl font-bold text-blue-600">NS3000Rent srl</h1>
+                  {user && (
+                    <p className="text-xs text-gray-500">
+                      {user.full_name} 
+                      {!isAdmin && <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">Solo Lettura</span>}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Link>
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex gap-2">
@@ -54,8 +70,9 @@ export default function DashboardLayout({
               ))}
             </nav>
 
-            {/* Desktop Logout */}
-            <div className="hidden md:block">
+            {/* Desktop Actions: Notifications + Logout */}
+            <div className="hidden md:flex items-center gap-3">
+              {user && <NotificationManager userId={user.id} />}
               <Button variant="outline" onClick={handleLogout} size="sm" className="gap-2">
                 <LogOut className="h-4 w-4" />
                 Esci
@@ -80,6 +97,13 @@ export default function DashboardLayout({
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 bg-white">
             <div className="px-4 py-2 space-y-1">
+              {/* Mobile Notifications */}
+              {user && (
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <NotificationManager userId={user.id} />
+                </div>
+              )}
+              
               {menuItems.map((item) => {
                 const Icon = item.icon
                 return (
@@ -116,5 +140,17 @@ export default function DashboardLayout({
         {children}
       </main>
     </div>
+  )
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <AuthProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </AuthProvider>
   )
 }

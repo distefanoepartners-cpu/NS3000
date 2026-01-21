@@ -1,0 +1,95 @@
+========================================
+FILE MANCANTI - Sistema Notifiche NS3000
+========================================
+
+Hai quasi finito! Mancano solo 3 file.
+
+
+COSA COPIARE
+============
+
+Copia questi 3 file dal pacchetto al tuo progetto:
+
+
+1. NotificationManager.tsx
+---------------------------
+DA:  ns3000_file_mancanti/components/NotificationManager.tsx
+  A:  tuo_progetto/components/NotificationManager.tsx
+
+
+2. sw.js (Service Worker)
+--------------------------
+DA:  ns3000_file_mancanti/public/sw.js
+  A:  tuo_progetto/public/sw.js
+
+
+3. send/route.ts (API notifiche)
+---------------------------------
+DA:  ns3000_file_mancanti/app/api/notifications/send/route.ts
+  A:  tuo_progetto/app/api/notifications/send/route.ts
+
+
+COME COPIARE
+============
+
+Metodo 1: Drag & Drop (Piu' semplice)
+--------------------------------------
+1. Estrai ns3000_file_mancanti.zip
+2. Apri la cartella estratta
+3. Apri la cartella del tuo progetto in un'altra finestra
+4. Trascina i file nelle posizioni indicate sopra
+
+
+Metodo 2: PowerShell
+--------------------
+Nella directory del tuo progetto:
+
+# Assumendo file estratti in C:\Download\ns3000_file_mancanti
+
+Copy-Item "C:\Download\ns3000_file_mancanti\components\NotificationManager.tsx" -Destination ".\components\"
+
+Copy-Item "C:\Download\ns3000_file_mancanti\public\sw.js" -Destination ".\public\"
+
+Copy-Item "C:\Download\ns3000_file_mancanti\app\api\notifications\send\route.ts" -Destination ".\app\api\notifications\send\"
+
+
+DOPO AVER COPIATO
+=================
+
+1. Esegui di nuovo il test:
+   
+   node test-notifications.js
+
+2. Dovrebbe dire: "Sistema notifiche completamente configurato!"
+
+3. Se tutto OK, esegui lo script SQL in Supabase
+   (usa il file database/notifications-schema.sql)
+
+4. Avvia il server:
+   
+   npm run dev
+
+5. Apri il backoffice e clicca "Abilita Notifiche Push"
+
+
+FILE AUDIO (OPZIONALI)
+======================
+
+I warning per i file audio sono normali.
+Sono opzionali - il sistema funziona anche senza.
+
+Se vuoi i suoni:
+- Scarica file MP3 da https://freesound.org
+- Salvali in public/sounds/ con questi nomi:
+  * alert.mp3
+  * info.mp3  
+  * success.mp3
+
+
+PROBLEMI?
+=========
+
+Se dopo aver copiato i file il test da ancora errori:
+- Verifica che i file siano nelle posizioni corrette
+- Controlla che i nomi file siano esatti (case sensitive)
+- Riavvia il terminale e rilancia il test

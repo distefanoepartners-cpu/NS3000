@@ -1,0 +1,33 @@
+# NS3000 - Aggiornamento Report PDF v1.7.6
+
+## CONTENUTO PACCHETTO
+
+Questo pacchetto contiene SOLO i file modificati/nuovi:
+
+- lib/pdf-generator.ts                    [NUOVO]
+- app/(dashboard)/reports/page.tsx        [MODIFICATO]
+- CHANGELOG-PDF-v1.7.6.md                [DOCUMENTAZIONE]
+- GUIDA-UTENTE-PDF.md                     [GUIDA UTENTE]
+- INTERFACCIA-REPORT-PDF.md               [UI REFERENCE]
+- README-INSTALLAZIONE-PDF.md             [INSTALLAZIONE]
+- verify-pdf-installation.js              [VERIFICA]
+- INSTALL.txt                             [QUESTO FILE]
+
+## INSTALLAZIONE RAPIDA
+
+1. Estrai questo ZIP nella root del progetto NS3000
+2. Esegui: npm install jspdf jspdf-autotable
+3. Esegui: node verify-pdf-installation.js
+4. Avvia: npm run dev
+5. Testa: vai su /reports e scarica un PDF
+
+## DETTAGLI
+
+Leggi README-INSTALLAZIONE-PDF.md per istruzioni complete.
+
+## SUPPORTO
+
+In caso di problemi:
+- Verifica che i file siano nelle directory corrette
+- Controlla la console del browser (F12) per errori
+- Consulta la documentazione inclusa

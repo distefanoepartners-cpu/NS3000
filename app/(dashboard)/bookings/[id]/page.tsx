@@ -7,8 +7,10 @@ import { it } from 'date-fns/locale'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import BookingModal from '@/components/BookingModal'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function BookingDetailPage() {
+  const { isAdmin } = useAuth()
   const params = useParams()
   const router = useRouter()
   const [booking, setBooking] = useState<any>(null)
@@ -101,20 +103,22 @@ export default function BookingDetailPage() {
         </p>
         
         {/* Buttons - Stack on mobile */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm md:text-base"
-          >
-            ✏️ Modifica
-          </button>
-          <button
-            onClick={handleDelete}
-            className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm md:text-base"
-          >
-            🗑️ Elimina
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm md:text-base"
+            >
+              ✏️ Modifica
+            </button>
+            <button
+              onClick={handleDelete}
+              className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm md:text-base"
+            >
+              🗑️ Elimina
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Status Badge */}
@@ -199,12 +203,14 @@ export default function BookingDetailPage() {
           </div>
 
           {/* Note */}
-          {booking.notes && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">📝 Note</h2>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">📝 Note</h2>
+            {booking.notes ? (
               <p className="text-gray-700 whitespace-pre-wrap">{booking.notes}</p>
-            </div>
-          )}
+            ) : (
+              <p className="text-gray-400 italic">Nessuna nota inserita</p>
+            )}
+          </div>
 
         </div>
 

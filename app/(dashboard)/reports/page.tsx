@@ -1,28 +1,41 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Plus, Eye, Send, CheckCircle, Trash2, Pencil, Mail } from 'lucide-react'
+import { Download, Mail, ChevronDown, ChevronUp, FileText } from 'lucide-react'
+import { 
+  generateMonthlySupplierReport, 
+  generateAnnualSupplierReport,
+  generateAllSuppliersReport 
+} from '@/lib/pdf-generator'
+
+type SupplierSummary = {
+  supplier: {
+    id: string
+    name: string
+    email: string | null
+    commission_percentage: number
+  }
+  year: string
+  total_bookings: number
+  total_revenue: number
+  total_commission: number
+  monthly: MonthlyBreakdown[]
+}
+
+type MonthlyBreakdown = {
+  month: string
+  bookings: number
+  revenue: number
+  commission: number
+  booking_details: BookingDetail[]
+}
+
+type BookingDetail = {
+  id: string
+  booking_number: string
+  booking_date: string
+  final_price: number
+}
 
 type Supplier = {
   id: string
@@ -31,579 +44,319 @@ type Supplier = {
   commission_percentage: number
 }
 
-type Statement = {
-  id: string
-  statement_number: string
-  supplier: { name: string; commission_percentage: number; email: string | null }
-  period_start: string
-  period_end: string
-  total_bookings: number
-  total_revenue: number
-  total_commission: number
-  status: string
-  generated_at: string
-  sent_at: string | null
-  paid_at: string | null
-}
-
-type Booking = {
-  id: string
-  booking_number: string
-  booking_date: string
-  final_price: number
-  customer: { first_name: string; last_name: string }
-  service: { name: string }
-  boat: { name: string }
-  booking_status: { name: string; code: string }
-}
-
 export default function ReportsPage() {
-  const [statements, setStatements] = useState<Statement[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
+  const [summary, setSummary] = useState<SupplierSummary[]>([])
   const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
-  const [selectedStatement, setSelectedStatement] = useState<any>(null)
-  const [editingStatement, setEditingStatement] = useState<Statement | null>(null)
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  })
-
-  const [formData, setFormData] = useState({
-    supplier_id: '',
-    month: ''
-  })
-
-  const [emailData, setEmailData] = useState({
-    to: '',
-    subject: '',
-    message: ''
-  })
+  const [expandedMonths, setExpandedMonths] = useState<{[key: string]: boolean}>({})
 
   useEffect(() => {
-    loadStatements()
     loadSuppliers()
-  }, [selectedMonth])
+  }, [])
 
-  const loadStatements = async () => {
+  useEffect(() => {
+    if (selectedYear) {
+      loadSummary()
+    }
+  }, [selectedSupplierId, selectedYear])
+
+  async function loadSuppliers() {
     try {
-      const response = await fetch(`/api/reports/suppliers?month=${selectedMonth}`)
-      const data = await response.json()
-      setStatements(data)
+      const res = await fetch('/api/suppliers')
+      const data = await res.json()
+      setSuppliers(data.filter((s: any) => s.is_active))
     } catch (error) {
-      console.error('Errore caricamento estratti conto:', error)
+      console.error('Error loading suppliers:', error)
+    }
+  }
+
+  async function loadSummary() {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams({
+        year: selectedYear
+      })
+      if (selectedSupplierId) {
+        params.append('supplier_id', selectedSupplierId)
+      }
+      
+      const res = await fetch(`/api/reports/suppliers-summary?${params}`)
+      const data = await res.json()
+      setSummary(data)
+    } catch (error) {
+      console.error('Error loading summary:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const loadSuppliers = async () => {
-    try {
-      const response = await fetch('/api/suppliers')
-      const data = await response.json()
-      setSuppliers(data.filter((s: any) => s.is_active))
-    } catch (error) {
-      console.error('Errore caricamento fornitori:', error)
-    }
+  function toggleMonth(supplierId: string, month: string) {
+    const key = `${supplierId}-${month}`
+    setExpandedMonths(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
   }
 
-  const handleNew = () => {
-    setEditingStatement(null)
-    setFormData({
-      supplier_id: '',
-      month: selectedMonth
-    })
-    setDialogOpen(true)
-  }
-
-  const handleEdit = (statement: Statement) => {
-    setEditingStatement(statement)
-    const date = new Date(statement.period_start)
-    const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-    
-    setFormData({
-      supplier_id: statement.supplier.name, // Questo sarà l'ID in produzione
-      month: month
-    })
-    setDialogOpen(true)
-  }
-
-  const handleGenerate = async () => {
-    if (!formData.supplier_id || !formData.month) {
-      alert('Compila tutti i campi')
-      return
-    }
-
-    try {
-      const [year, month] = formData.month.split('-')
-      const period_start = `${year}-${month}-01`
-      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate()
-      const period_end = `${year}-${month}-${lastDay}`
-
-      const url = editingStatement 
-        ? `/api/reports/suppliers/${editingStatement.id}`
-        : '/api/reports/suppliers'
-      
-      const method = editingStatement ? 'PUT' : 'POST'
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supplier_id: formData.supplier_id,
-          period_start,
-          period_end
-        })
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        alert(error.error || 'Errore durante il salvataggio')
-        return
-      }
-
-      setDialogOpen(false)
-      setFormData({ supplier_id: '', month: '' })
-      setEditingStatement(null)
-      loadStatements()
-      alert(editingStatement ? 'Estratto conto aggiornato!' : 'Estratto conto generato con successo!')
-    } catch (error) {
-      console.error('Errore salvataggio:', error)
-      alert('Errore durante il salvataggio')
-    }
-  }
-
-  const handleViewDetail = async (statementId: string) => {
-    try {
-      const response = await fetch(`/api/reports/suppliers/${statementId}`)
-      const data = await response.json()
-      setSelectedStatement(data)
-      setDetailDialogOpen(true)
-    } catch (error) {
-      console.error('Errore caricamento dettaglio:', error)
-      alert('Errore durante il caricamento')
-    }
-  }
-
-  const handlePrepareEmail = (statement: Statement) => {
-    setSelectedStatement(statement)
-    setEmailData({
-      to: statement.supplier.email || '',
-      subject: `Estratto Conto ${statement.statement_number} - ${statement.supplier.name}`,
-      message: `Gentile ${statement.supplier.name},\n\nIn allegato troverete l'estratto conto relativo al periodo ${new Date(statement.period_start).toLocaleDateString('it-IT')} - ${new Date(statement.period_end).toLocaleDateString('it-IT')}.\n\nRiepilogo:\n- Prenotazioni: ${statement.total_bookings}\n- Fatturato totale: € ${statement.total_revenue.toFixed(2)}\n- Provvigione (${statement.supplier.commission_percentage}%): € ${statement.total_commission.toFixed(2)}\n\nCordiali saluti,\nNS3000 RENT`
-    })
-    setEmailDialogOpen(true)
-  }
-
-  const handleSendEmail = async () => {
-    if (!emailData.to) {
-      alert('Inserisci un indirizzo email')
-      return
-    }
-
-    try {
-      const response = await fetch('/api/reports/suppliers/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          statement_id: selectedStatement.id,
-          to: emailData.to,
-          subject: emailData.subject,
-          message: emailData.message
-        })
-      })
-
-      if (!response.ok) {
-        alert('Errore durante l\'invio email')
-        return
-      }
-
-      // Aggiorna stato a "sent"
-      await handleUpdateStatus(selectedStatement.id, 'sent')
-      
-      setEmailDialogOpen(false)
-      alert('Email inviata con successo!')
-    } catch (error) {
-      console.error('Errore invio email:', error)
-      alert('Errore durante l\'invio email')
-    }
-  }
-
-  const handleUpdateStatus = async (statementId: string, status: string) => {
-    try {
-      await fetch(`/api/reports/suppliers/${statementId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      })
-      loadStatements()
-    } catch (error) {
-      console.error('Errore aggiornamento:', error)
-    }
-  }
-
-  const handleDelete = async (statementId: string) => {
-    if (!confirm('Sei sicuro di voler eliminare questo estratto conto?')) return
-
-    try {
-      await fetch(`/api/reports/suppliers/${statementId}`, {
-        method: 'DELETE'
-      })
-      loadStatements()
-    } catch (error) {
-      console.error('Errore eliminazione:', error)
-      alert('Errore durante l\'eliminazione')
-    }
-  }
-
-  const getMonthName = (monthStr: string) => {
+  function getMonthName(monthStr: string) {
     const [year, month] = monthStr.split('-')
     const date = new Date(parseInt(year), parseInt(month) - 1)
     return date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
   }
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-      draft: { label: 'Bozza', variant: 'secondary' },
-      sent: { label: 'Inviato', variant: 'default' },
-      paid: { label: 'Pagato', variant: 'outline' }
-    }
-    const config = variants[status] || { label: status, variant: 'secondary' }
-    return <Badge variant={config.variant}>{config.label}</Badge>
+  function downloadMonthReport(supplierSummary: SupplierSummary, monthData: MonthlyBreakdown) {
+    const lines = [
+      `REPORT MENSILE - ${supplierSummary.supplier.name}`,
+      `Mese: ${getMonthName(monthData.month)}`,
+      ``,
+      `RIEPILOGO:`,
+      `Prenotazioni: ${monthData.bookings}`,
+      `Fatturato: €${monthData.revenue.toFixed(2)}`,
+      `Provvigioni (${supplierSummary.supplier.commission_percentage}%): €${monthData.commission.toFixed(2)}`,
+      ``,
+      `DETTAGLIO PRENOTAZIONI:`,
+      ``,
+      ...monthData.booking_details.map(b => 
+        `${b.booking_number} - ${new Date(b.booking_date).toLocaleDateString('it-IT')} - €${b.final_price.toFixed(2)}`
+      )
+    ]
+    
+    const content = lines.join('\n')
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `report-${supplierSummary.supplier.name.replace(/\s+/g, '-')}-${monthData.month}.txt`
+    a.click()
   }
 
-  if (loading) {
-    return <div>Caricamento...</div>
+  function downloadMonthReportPDF(supplierSummary: SupplierSummary, monthData: MonthlyBreakdown) {
+    generateMonthlySupplierReport(
+      supplierSummary.supplier,
+      monthData,
+      supplierSummary.year
+    )
+  }
+
+  function downloadAnnualReportPDF(supplierSummary: SupplierSummary) {
+    generateAnnualSupplierReport(
+      supplierSummary.supplier,
+      supplierSummary.year,
+      supplierSummary.total_bookings,
+      supplierSummary.total_revenue,
+      supplierSummary.total_commission,
+      supplierSummary.monthly
+    )
+  }
+
+  function downloadAllSuppliersPDF() {
+    const suppliersData = summary.map(s => ({
+      supplier: s.supplier,
+      total_bookings: s.total_bookings,
+      total_revenue: s.total_revenue,
+      total_commission: s.total_commission
+    }))
+    
+    generateAllSuppliersReport(selectedYear, suppliersData)
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Estratti Conto Fornitori</h1>
-          <p className="text-gray-600 mt-1">Calcolo automatico provvigioni</p>
-        </div>
-        <div className="flex gap-3">
-          {/* Filtro Mese */}
-          <div className="flex items-center gap-2">
-            <Label htmlFor="month-filter">Mese:</Label>
-            <Input
-              id="month-filter"
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-48"
-            />
-          </div>
-          
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleNew}>
-                <Plus className="mr-2 h-4 w-4" />
-                Genera Estratto Conto
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingStatement ? 'Modifica Estratto Conto' : 'Genera Nuovo Estratto Conto'}
-                </DialogTitle>
-                <DialogDescription>
-                  Seleziona fornitore e mese per calcolare le provvigioni
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="supplier_id">Fornitore *</Label>
-                  <select
-                    id="supplier_id"
-                    value={formData.supplier_id}
-                    onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="">Seleziona fornitore...</option>
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.commission_percentage}%)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="month">Mese *</Label>
-                  <Input
-                    id="month"
-                    type="month"
-                    value={formData.month}
-                    onChange={(e) => setFormData({ ...formData, month: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Annulla
-                </Button>
-                <Button onClick={handleGenerate}>
-                  {editingStatement ? 'Aggiorna' : 'Genera'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">📊 Report Fornitori</h1>
+        <p className="text-sm text-gray-600">Riepilogo provvigioni e fatturato</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Estratti Conto - {getMonthName(selectedMonth)} ({statements.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Numero</TableHead>
-                <TableHead>Fornitore</TableHead>
-                <TableHead>Mese</TableHead>
-                <TableHead>Prenotazioni</TableHead>
-                <TableHead>Fatturato</TableHead>
-                <TableHead>Provvigione</TableHead>
-                <TableHead>Stato</TableHead>
-                <TableHead className="text-right">Azioni</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {statements.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                    Nessun estratto conto per questo mese. Clicca "Genera Estratto Conto" per iniziare.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                statements.map((statement) => {
-                  const date = new Date(statement.period_start)
-                  const monthName = date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
+      {/* Filtri */}
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fornitore</label>
+            <select
+              value={selectedSupplierId}
+              onChange={(e) => setSelectedSupplierId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="">Tutti i fornitori</option>
+              {suppliers.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.commission_percentage}%)
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Anno</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+            </select>
+          </div>
+        </div>
+        
+        {/* Pulsante download riepilogo generale */}
+        {!selectedSupplierId && summary.length > 0 && (
+          <div className="mt-4 pt-4 border-t">
+            <button
+              onClick={downloadAllSuppliersPDF}
+              className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors"
+            >
+              <FileText className="w-5 h-5" />
+              <span>Scarica Riepilogo PDF Tutti i Fornitori</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Loading */}
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="text-gray-600">Caricamento...</div>
+        </div>
+      ) : summary.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-8 text-center">
+          <div className="text-gray-600">Nessun dato trovato per il periodo selezionato</div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {summary.map(supplierData => (
+            <div key={supplierData.supplier.id} className="bg-white rounded-lg shadow overflow-hidden">
+              {/* Header Fornitore */}
+              <div className="bg-blue-50 p-4 border-b">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{supplierData.supplier.name}</h2>
+                    <p className="text-sm text-gray-600">
+                      Provvigioni: {supplierData.supplier.commission_percentage}%
+                      {supplierData.supplier.email && ` • ${supplierData.supplier.email}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-sm text-gray-600">Anno {supplierData.year}</div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        €{supplierData.total_commission.toFixed(2)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => downloadAnnualReportPDF(supplierData)}
+                      className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      title="Scarica Report Annuale PDF"
+                    >
+                      <FileText className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Totali Anno */}
+              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 border-b">
+                <div>
+                  <div className="text-sm text-gray-600">Prenotazioni Totali</div>
+                  <div className="text-xl font-semibold">{supplierData.total_bookings}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600">Fatturato Totale</div>
+                  <div className="text-xl font-semibold">€{supplierData.total_revenue.toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600">Provvigioni Totali</div>
+                  <div className="text-xl font-semibold text-green-600">€{supplierData.total_commission.toFixed(2)}</div>
+                </div>
+              </div>
+
+              {/* Breakdown Mensile */}
+              <div className="divide-y">
+                {supplierData.monthly.map(monthData => {
+                  const isExpanded = expandedMonths[`${supplierData.supplier.id}-${monthData.month}`]
                   
                   return (
-                    <TableRow key={statement.id}>
-                      <TableCell className="font-medium">{statement.statement_number}</TableCell>
-                      <TableCell>
-                        <div>{statement.supplier.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {statement.supplier.commission_percentage}% provvigione
+                    <div key={monthData.month}>
+                      {/* Riga Mese */}
+                      <div className="p-4 hover:bg-gray-50 cursor-pointer"
+                           onClick={() => toggleMonth(supplierData.supplier.id, monthData.month)}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            <div>
+                              <div className="font-medium">{getMonthName(monthData.month)}</div>
+                              <div className="text-sm text-gray-600">{monthData.bookings} prenotazioni</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <div className="text-right">
+                              <div className="text-sm text-gray-600">Fatturato</div>
+                              <div className="font-semibold">€{monthData.revenue.toFixed(2)}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-gray-600">Provvigioni</div>
+                              <div className="font-semibold text-green-600">€{monthData.commission.toFixed(2)}</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  downloadMonthReportPDF(supplierData, monthData)
+                                }}
+                                className="p-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                                title="Scarica PDF"
+                              >
+                                <FileText className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  downloadMonthReport(supplierData, monthData)
+                                }}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Scarica TXT"
+                              >
+                                <Download className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="capitalize">{monthName}</TableCell>
-                      <TableCell className="text-center font-semibold">
-                        {statement.total_bookings}
-                      </TableCell>
-                      <TableCell className="font-semibold text-blue-600">
-                        € {statement.total_revenue.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="font-bold text-green-600">
-                        € {statement.total_commission.toFixed(2)}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(statement.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetail(statement.id)}
-                            title="Visualizza dettaglio"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(statement)}
-                            title="Modifica"
-                          >
-                            <Pencil className="h-4 w-4 text-blue-500" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handlePrepareEmail(statement)}
-                            title="Invia email"
-                            disabled={!statement.supplier.email}
-                          >
-                            <Mail className="h-4 w-4 text-purple-500" />
-                          </Button>
-                          {statement.status === 'sent' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleUpdateStatus(statement.id, 'paid')}
-                              title="Marca come pagato"
-                            >
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(statement.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
+                      </div>
+
+                      {/* Dettaglio Prenotazioni */}
+                      {isExpanded && (
+                        <div className="bg-gray-50 px-4 pb-4">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="py-2 text-left">N. Prenotazione</th>
+                                <th className="py-2 text-left">Data</th>
+                                <th className="py-2 text-right">Importo</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {monthData.booking_details.map(booking => (
+                                <tr key={booking.id} className="border-b last:border-0">
+                                  <td className="py-2">{booking.booking_number}</td>
+                                  <td className="py-2">{new Date(booking.booking_date).toLocaleDateString('it-IT')}</td>
+                                  <td className="py-2 text-right">€{booking.final_price.toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      )}
+                    </div>
                   )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Dialog Email */}
-      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Invia Estratto Conto via Email</DialogTitle>
-            <DialogDescription>
-              {selectedStatement?.statement_number} - {selectedStatement?.supplier.name}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="email_to">Destinatario *</Label>
-              <Input
-                id="email_to"
-                type="email"
-                value={emailData.to}
-                onChange={(e) => setEmailData({ ...emailData, to: e.target.value })}
-                placeholder="fornitore@example.com"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email_subject">Oggetto *</Label>
-              <Input
-                id="email_subject"
-                value={emailData.subject}
-                onChange={(e) => setEmailData({ ...emailData, subject: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email_message">Messaggio *</Label>
-              <textarea
-                id="email_message"
-                value={emailData.message}
-                onChange={(e) => setEmailData({ ...emailData, message: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[200px]"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
-              Annulla
-            </Button>
-            <Button onClick={handleSendEmail} disabled={!emailData.to}>
-              <Send className="mr-2 h-4 w-4" />
-              Invia Email
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog Dettaglio */}
-      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Dettaglio Estratto Conto</DialogTitle>
-          </DialogHeader>
-
-          {selectedStatement && (
-            <div className="space-y-6">
-              {/* Header */}
-              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded">
-                <div>
-                  <div className="text-sm text-gray-600">Fornitore</div>
-                  <div className="font-semibold">{selectedStatement.statement.supplier.name}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-600">Mese</div>
-                  <div className="font-semibold capitalize">
-                    {new Date(selectedStatement.statement.period_start).toLocaleDateString('it-IT', { 
-                      month: 'long', 
-                      year: 'numeric' 
-                    })}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-600">Totale Fatturato</div>
-                  <div className="text-xl font-bold text-blue-600">
-                    € {selectedStatement.statement.total_revenue.toFixed(2)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-600">
-                    Provvigione ({selectedStatement.statement.supplier.commission_percentage}%)
-                  </div>
-                  <div className="text-xl font-bold text-green-600">
-                    € {selectedStatement.statement.total_commission.toFixed(2)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Elenco Prenotazioni */}
-              <div>
-                <h3 className="font-semibold mb-3">
-                  Prenotazioni ({selectedStatement.bookings.length})
-                </h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>N°</TableHead>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Servizio</TableHead>
-                      <TableHead>Barca</TableHead>
-                      <TableHead className="text-right">Importo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedStatement.bookings.map((booking: Booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell className="font-medium">{booking.booking_number}</TableCell>
-                        <TableCell>
-                          {new Date(booking.booking_date).toLocaleDateString('it-IT')}
-                        </TableCell>
-                        <TableCell>
-                          {booking.customer.first_name} {booking.customer.last_name}
-                        </TableCell>
-                        <TableCell>{booking.service.name}</TableCell>
-                        <TableCell>{booking.boat.name}</TableCell>
-                        <TableCell className="text-right font-semibold">
-                          € {booking.final_price.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                })}
               </div>
             </div>
-          )}
-
-          <div className="flex justify-end">
-            <Button onClick={() => setDetailDialogOpen(false)}>
-              Chiudi
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

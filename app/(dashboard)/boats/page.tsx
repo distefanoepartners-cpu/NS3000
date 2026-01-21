@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Plus, Pencil, Trash2, Ship, Anchor, Settings } from 'lucide-react'
+import { Plus, Pencil, Trash2, Ship, Anchor, Settings, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
 type Boat = {
@@ -34,8 +34,10 @@ type Boat = {
     fuel_type: string | null
     year: number | null
   } | null
-  has_rental: boolean
-  has_charter: boolean
+  has_rental: boolean // Locazione (Charter self-drive)
+  has_charter: boolean // Tour Privati (con skipper)
+  has_collective: boolean // Tour Collettivi
+  caution_amount: number | null // Cauzione per locazione
   // Prezzi LOCAZIONE (Charter)
   price_charter_apr_may_oct_half_day: number | null
   price_charter_apr_may_oct_full_day: number | null
@@ -105,6 +107,8 @@ export default function BoatsPage() {
     notes: '',
     has_rental: true,
     has_charter: false,
+    has_collective: false,
+    caution_amount: '', // Cauzione locazione
     // Prezzi Locazione
     price_charter_apr_may_oct_half_day: '',
     price_charter_apr_may_oct_full_day: '',
@@ -196,6 +200,8 @@ export default function BoatsPage() {
       notes: '',
       has_rental: true,
       has_charter: false,
+      has_collective: false,
+      caution_amount: '', // Reset cauzione
       price_charter_apr_may_oct_half_day: '',
       price_charter_apr_may_oct_full_day: '',
       price_charter_apr_may_oct_week: '',
@@ -248,6 +254,8 @@ export default function BoatsPage() {
       notes: boat.description || '',
       has_rental: boat.has_rental ?? true,
       has_charter: boat.has_charter ?? false,
+      has_collective: boat.has_collective ?? false,
+      caution_amount: boat.caution_amount?.toString() || '', // Carica cauzione
       price_charter_apr_may_oct_half_day: boat.price_charter_apr_may_oct_half_day?.toString() || '',
       price_charter_apr_may_oct_full_day: boat.price_charter_apr_may_oct_full_day?.toString() || '',
       price_charter_apr_may_oct_week: boat.price_charter_apr_may_oct_week?.toString() || '',
@@ -292,6 +300,8 @@ export default function BoatsPage() {
         },
         has_rental: formData.has_rental,
         has_charter: formData.has_charter,
+        has_collective: formData.has_collective,
+        caution_amount: formData.caution_amount ? parseFloat(formData.caution_amount) : null, // Salva cauzione
         // Prezzi Locazione
         price_charter_apr_may_oct_half_day: formData.price_charter_apr_may_oct_half_day ? parseFloat(formData.price_charter_apr_may_oct_half_day) : null,
         price_charter_apr_may_oct_full_day: formData.price_charter_apr_may_oct_full_day ? parseFloat(formData.price_charter_apr_may_oct_full_day) : null,
@@ -521,16 +531,6 @@ export default function BoatsPage() {
                     placeholder="Es. 8"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="company_name">Azienda</Label>
-                  <Input
-                    id="company_name"
-                    value={formData.company_name}
-                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    placeholder="Es. NS3000 RENT SRL"
-                  />
-                </div>
               </div>
 
               {/* Campo Immagine */}
@@ -575,7 +575,7 @@ export default function BoatsPage() {
                     />
                     <Label htmlFor="has_rental" className="cursor-pointer flex items-center gap-2">
                       <Ship className="h-4 w-4" />
-                      Disponibile per Noleggio
+                      Disponibile per Locazione (Charter)
                     </Label>
                   </div>
 
@@ -589,14 +589,28 @@ export default function BoatsPage() {
                     />
                     <Label htmlFor="has_charter" className="cursor-pointer flex items-center gap-2">
                       <Anchor className="h-4 w-4" />
-                      Disponibile per Locazione
+                      Disponibile per Tour Privati
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="has_collective"
+                      checked={formData.has_collective}
+                      onChange={(e) => setFormData({ ...formData, has_collective: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <Label htmlFor="has_collective" className="cursor-pointer flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Disponibile per Tour Collettivi
                     </Label>
                   </div>
                 </div>
               </div>
 
               {/* LISTINO LOCAZIONE */}
-              {formData.has_charter && (
+              {formData.has_rental && (
                 <div className="border-t pt-6 mt-6">
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <Anchor className="h-5 w-5" />
@@ -740,6 +754,46 @@ export default function BoatsPage() {
                         />
                       </div>
                     </div>
+                  </div>
+
+                  {/* CAUZIONE - Solo per Locazione */}
+                  <div className="mt-6 bg-purple-50 p-4 rounded-lg border-2 border-purple-200">
+                    <h4 className="font-medium mb-3 text-purple-900 flex items-center gap-2">
+                      💰 Cauzione (Solo Locazione)
+                    </h4>
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1">
+                        <Label>Importo Cauzione (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Inserisci importo personalizzato"
+                          value={formData.caution_amount}
+                          onChange={(e) => setFormData({ ...formData, caution_amount: e.target.value })}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setFormData({ ...formData, caution_amount: '150' })}
+                          className="bg-purple-100 hover:bg-purple-200 border-purple-300"
+                        >
+                          €150
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setFormData({ ...formData, caution_amount: '250' })}
+                          className="bg-purple-100 hover:bg-purple-200 border-purple-300"
+                        >
+                          €250
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-purple-700 mt-2">
+                      💡 La cauzione verrà richiesta automaticamente per tutte le prenotazioni di tipo "Locazione"
+                    </p>
                   </div>
                 </div>
               )}
@@ -896,8 +950,6 @@ export default function BoatsPage() {
                 <h3 className="text-xl font-bold text-gray-900 mb-1">{boat.name}</h3>
                 <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
                   <span>{boat.boat_type}</span>
-                  <span>•</span>
-                  <span>🏢 {boat.company_name || 'NS3000 RENT SRL'}</span>
                 </div>
                 {boat.max_passengers && (
                   <p className="text-sm text-gray-600 mb-4">
@@ -910,9 +962,13 @@ export default function BoatsPage() {
                   <div className="bg-blue-50 rounded-lg p-3 mb-4">
                     <div className="flex items-center gap-2 mb-1">
                       <Ship className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm font-semibold text-blue-900">Noleggio Disponibile</span>
+                      <span className="text-sm font-semibold text-blue-900">Locazione Disponibile</span>
                     </div>
-                    <p className="text-xs text-gray-600">Tour e servizi configurati</p>
+                    {boat.caution_amount && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        💰 Cauzione: €{boat.caution_amount}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -920,19 +976,25 @@ export default function BoatsPage() {
                   <div className="bg-purple-50 rounded-lg p-3 mb-4">
                     <div className="flex items-center gap-2 mb-1">
                       <Anchor className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm font-semibold text-purple-900">Locazione Disponibile</span>
+                      <span className="text-sm font-semibold text-purple-900">Tour Privati Disponibili</span>
                     </div>
-                    {boat.price_charter_june_full_day && (
-                      <p className="text-sm font-semibold text-purple-600">
-                        Da €{boat.price_charter_june_full_day}
-                      </p>
-                    )}
+                    <p className="text-xs text-gray-600">Tour con skipper configurati</p>
+                  </div>
+                )}
+
+                {boat.has_collective && (
+                  <div className="bg-green-50 rounded-lg p-3 mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-semibold text-green-900">Tour Collettivi Disponibili</span>
+                    </div>
+                    <p className="text-xs text-gray-600">Disponibile per tour di gruppo</p>
                   </div>
                 )}
 
                 {/* Actions */}
                 <div className="flex gap-2">
-                  {boat.has_rental && (
+                  {(boat.has_charter || boat.has_collective) && (
                     <button
                       onClick={() => openServicesModal(boat)}
                       className="flex-1 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium text-sm flex items-center justify-center gap-2"

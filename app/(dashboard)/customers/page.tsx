@@ -1,23 +1,15 @@
 'use client'
-
-import { useEffect, useState, useRef } from 'react'
+import React from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Pencil, Trash2, Upload, Download, User, Mail, Phone } from 'lucide-react'
+import { Plus, Pencil, Trash2, Upload, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import CreateCustomerModal from '@/components/CreateCustomerModal'
 
@@ -46,7 +38,7 @@ export default function CustomersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [importing, setImporting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadCustomers()
@@ -268,92 +260,96 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCustomers.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-gray-500">
-            Nessun cliente trovato
-          </div>
-        ) : (
-          filteredCustomers.map((customer) => (
-            <div key={customer.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    <User className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold truncate">
-                      {customer.first_name} {customer.last_name}
-                    </h3>
-                    {customer.nationality && (
-                      <p className="text-sm text-blue-100">{customer.nationality}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+      {/* Table - Responsive */}
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Nome</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Cognome</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Telefono</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Nazionalità</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Documento</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Patente</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Azioni</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                    Nessun cliente trovato
+                  </td>
+                </tr>
+              ) : (
+                filteredCustomers.map((customer) => (
+                  <tr key={customer.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 max-w-[120px] truncate">
+                      {customer.first_name}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 max-w-[120px] truncate">
+                      {customer.last_name}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[200px] truncate">
+                      {customer.email || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[140px]">
+                      {customer.phone || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[100px] truncate">
+                      {customer.nationality || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[150px]">
+                      {customer.document_type && customer.document_number ? (
+                        <div>
+                          <div className="font-medium">{customer.document_type}</div>
+                          <div className="text-xs">{customer.document_number}</div>
+                        </div>
+                      ) : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap">
+                      {customer.has_boat_license ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          ✓ Sì
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingCustomer(customer)
+                            setShowCreateModal(true)
+                          }}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Modifica"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(customer.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Elimina"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-              {/* Content */}
-              <div className="p-5 space-y-3">
-                {/* Email */}
-                {customer.email && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-gray-700 truncate">{customer.email}</span>
-                  </div>
-                )}
-
-                {/* Phone */}
-                {customer.phone && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-gray-700">{customer.phone}</span>
-                  </div>
-                )}
-
-                {/* Badges */}
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {customer.has_boat_license && (
-                    <Badge className="bg-purple-100 text-purple-800">
-                      ⚓ Patente Nautica
-                    </Badge>
-                  )}
-                  {customer.document_type && (
-                    <Badge className="bg-gray-100 text-gray-800">
-                      {customer.document_type}
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Date */}
-                <div className="text-xs text-gray-500 pt-2 border-t">
-                  Registrato: {new Date(customer.created_at).toLocaleDateString('it-IT')}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 p-4 border-t bg-gray-50">
-                <button
-                  onClick={() => {
-                    setEditingCustomer(customer)
-                    setShowCreateModal(true)
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium text-sm flex items-center justify-center gap-2"
-                >
-                  <Pencil className="w-4 h-4" />
-                  Modifica
-                </button>
-                <button
-                  onClick={() => handleDelete(customer.id)}
-                  className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium text-sm"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+      {/* Totale Risultati */}
+      <div className="text-center text-sm text-gray-600">
+        Visualizzati {filteredCustomers.length} di {customers.length} clienti
       </div>
 
       {/* Create/Edit Modal */}
@@ -366,6 +362,7 @@ export default function CustomersPage() {
         onCustomerCreated={() => {
           loadCustomers()
         }}
+        customer={editingCustomer}
       />
     </div>
   )

@@ -11,7 +11,16 @@ export async function GET(
     
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('*')
+      .select(`
+        *,
+        customer:customers(*),
+        boat:boats(*),
+        service:rental_services(*),
+        booking_status:booking_statuses(*),
+        deposit_payment_method:payment_methods!bookings_deposit_payment_method_id_fkey(*),
+        balance_payment_method:payment_methods!bookings_balance_payment_method_id_fkey(*),
+        caution_payment_method:payment_methods!bookings_caution_payment_method_id_fkey(*)
+      `)
       .eq('id', params.id)
       .single()
 
@@ -47,10 +56,20 @@ export async function PUT(
         final_price: body.final_price,
         deposit_amount: body.deposit_amount,
         balance_amount: body.balance_amount,
+        caution_amount: body.caution_amount || 0,
         deposit_payment_method_id: body.deposit_payment_method_id || null,
         balance_payment_method_id: body.balance_payment_method_id || null,
+        caution_payment_method_id: body.caution_payment_method_id || null,
+        deposit_payment_date: body.deposit_payment_date || null,
+        balance_payment_date: body.balance_payment_date || null,
         booking_status_id: body.booking_status_id,
-        notes: body.notes
+        notes: body.notes,
+        // NUOVI CAMPI v1.4.0+
+        payment_type: body.payment_type || 'deposit',
+        deposit_percentage: body.deposit_percentage || 30,
+        booking_source: body.booking_source || 'online',
+        supplier_id: body.supplier_id || null,
+        skipper_id: body.skipper_id || null
       })
       .eq('id', params.id)
       .select()

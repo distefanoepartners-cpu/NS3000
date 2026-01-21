@@ -7,7 +7,8 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from('customers')
       .select('*')
-      .order('last_name', { ascending: true })
+      .order('created_at', { ascending: false }) // ✅ Più recenti prima
+      .limit(5000) // ✅ Limite per performance
 
     if (error) throw error
 
