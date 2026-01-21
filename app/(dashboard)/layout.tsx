@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { LogOut, Menu, X, Ship, Anchor, Calendar, MapPin, Users, Building2, BarChart3, UserCircle, Settings } from 'lucide-react'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import NotificationManager from '@/components/NotificationManager'
+import BriefingModal from '@/components/BriefingModal'
 
 function DashboardLayoutContent({
   children,
@@ -139,6 +140,9 @@ function DashboardLayoutContent({
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
+
+      {/* Briefing Modal - DEVE essere letto */}
+      {user && <BriefingModal userId={user.id} />}
     </div>
   )
 }
