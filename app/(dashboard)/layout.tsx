@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -16,10 +18,22 @@ function DashboardLayoutContent({
 }) {
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { user, isAdmin, logout } = useAuth()
+  const { user, loading, isAdmin, logout } = useAuth()
 
   const handleLogout = async () => {
     await logout()
+  }
+
+  // Loading screen durante caricamento auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Caricamento...</p>
+        </div>
+      </div>
+    )
   }
 
   // Menu items dinamici basati sul ruolo
@@ -32,7 +46,8 @@ function DashboardLayoutContent({
     { href: '/customers', label: 'Clienti', icon: Users, roles: ['admin'] },
     { href: '/suppliers', label: 'Fornitori', icon: Building2, roles: ['admin'] },
     { href: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin'] },
-    { href: '/users', label: 'Crew', icon: Settings, roles: ['admin'] },
+    { href: '/users', label: 'Gestione Utenti', icon: Settings, roles: ['admin'] },
+    { href: '/briefings', label: 'Promemoria', icon: Calendar, roles: ['admin'] },
   ]
 
   // Filtra menu basato sul ruolo
