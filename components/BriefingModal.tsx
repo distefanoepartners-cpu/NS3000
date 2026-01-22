@@ -25,6 +25,7 @@ interface Briefing {
 }
 
 export default function BriefingModal({ userId }: BriefingModalProps) {
+ console.log('🔴 BriefingModal LOADED! userId:', userId);  //
   const [pendingBriefing, setPendingBriefing] = useState<Briefing | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [showModal, setShowModal] = useState(false);
