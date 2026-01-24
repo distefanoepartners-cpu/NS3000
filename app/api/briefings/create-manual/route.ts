@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     const dateStr = tomorrow.toISOString().split('T')[0];
 
-    console.log('📋 Creazione briefing manuale per:', dateStr);
+    console.log('📋 Creazione briefing per:', dateStr);
 
     // Verifica se esiste già
     const { data: existing } = await supabase
@@ -42,20 +42,37 @@ export async function POST(request: Request) {
       });
     }
 
-    // Ottieni prenotazioni
+    // STEP 1: Ottieni gli ID degli status validi
+    const { data: validStatuses } = await supabase
+      .from('booking_statuses')
+      .select('id, code')
+      .in('code', ['confirmed', 'pending']);
+
+    const validStatusIds = validStatuses?.map(s => s.id) || [];
+    
+    console.log('✅ Status validi:', validStatusIds);
+
+    if (validStatusIds.length === 0) {
+      console.warn('⚠️ Nessuno status valido trovato');
+    }
+
+    // STEP 2: Ottieni prenotazioni filtrate per status_id
     const { data: bookings, error } = await supabase
       .from('bookings')
       .select(`
-        *,
-        customer:customers(first_name, last_name, phone),
-        boat:boats(name),
-        service:rental_services(name),
-        skipper:skippers(first_name, last_name, phone),
-        booking_status:booking_statuses(name, code)
+        id,
+        booking_date,
+        time_slot,
+        num_passengers,
+        customer_id,
+        boat_id,
+        service_id,
+        skipper_id,
+        status_id
       `)
       .gte('booking_date', tomorrow.toISOString())
       .lte('booking_date', tomorrowEnd.toISOString())
-      .in('booking_status.code', ['confirmed', 'pending'])
+      .in('status_id', validStatusIds)
       .order('booking_date', { ascending: true });
 
     if (error) {
@@ -63,21 +80,59 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    const totalPassengers = bookings?.reduce(
+    console.log(`📦 Trovate ${bookings?.length || 0} prenotazioni grezze`);
+
+    // STEP 3: Arricchisci con i dati delle relazioni
+    const enrichedBookings = await Promise.all(
+      (bookings || []).map(async (booking) => {
+        const [customer, boat, service, skipper, status] = await Promise.all([
+          booking.customer_id 
+            ? supabase.from('customers').select('first_name, last_name, phone').eq('id', booking.customer_id).single()
+            : null,
+          booking.boat_id
+            ? supabase.from('boats').select('name').eq('id', booking.boat_id).single()
+            : null,
+          booking.service_id
+            ? supabase.from('rental_services').select('name').eq('id', booking.service_id).single()
+            : null,
+          booking.skipper_id
+            ? supabase.from('skippers').select('first_name, last_name, phone').eq('id', booking.skipper_id).single()
+            : null,
+          booking.status_id
+            ? supabase.from('booking_statuses').select('name, code').eq('id', booking.status_id).single()
+            : null
+        ]);
+
+        return {
+          id: booking.id,
+          booking_date: booking.booking_date,
+          time_slot: booking.time_slot,
+          num_passengers: booking.num_passengers,
+          customer: customer?.data || null,
+          boat: boat?.data || null,
+          service: service?.data || null,
+          skipper: skipper?.data || null,
+          booking_status: status?.data || null
+        };
+      })
+    );
+
+    const totalPassengers = enrichedBookings.reduce(
       (sum, b) => sum + (b.num_passengers || 0), 
       0
-    ) || 0;
+    );
 
-    console.log(`✅ Trovate ${bookings?.length || 0} prenotazioni per ${dateStr}`);
+    console.log(`✅ ${enrichedBookings.length} prenotazioni arricchite per ${dateStr}`);
+    console.log(`👥 Totale passeggeri: ${totalPassengers}`);
 
-    // Crea briefing
+    // STEP 4: Crea briefing
     const { data: briefing, error: insertError } = await supabase
       .from('daily_briefings')
       .insert({
         date: dateStr,
-        bookings_count: bookings?.length || 0,
+        bookings_count: enrichedBookings.length,
         total_passengers: totalPassengers,
-        content: bookings || []
+        content: enrichedBookings
       })
       .select()
       .single();
@@ -104,7 +159,7 @@ export async function POST(request: Request) {
     console.error('❌ Briefing creation error:', error);
     return NextResponse.json({ 
       error: error.message,
-      details: 'Controlla la console per maggiori dettagli'
+      details: error.stack || 'Controlla la console per maggiori dettagli'
     }, { status: 500 });
   }
 }

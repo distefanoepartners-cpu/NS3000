@@ -2,15 +2,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, CheckCircle, AlertCircle, Users, Calendar } from 'lucide-react';
+import { CheckCircle, AlertCircle, Calendar } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
-
-const getSupabaseClient = () => {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-};
 
 interface BriefingModalProps {
   userId: string;
@@ -25,13 +18,13 @@ interface Briefing {
 }
 
 export default function BriefingModal({ userId }: BriefingModalProps) {
- console.log('🔴 BriefingModal LOADED! userId:', userId);  //
   const [pendingBriefing, setPendingBriefing] = useState<Briefing | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
-  // Controlla briefing non letti
+  // Controlla briefing non letti all'avvio e poi ogni 30 secondi
   useEffect(() => {
+    console.log('🚀 BriefingModal mounted for user:', userId);
     checkPendingBriefing();
     
     // Controlla ogni 30 secondi
@@ -41,54 +34,35 @@ export default function BriefingModal({ userId }: BriefingModalProps) {
 
   const checkPendingBriefing = async () => {
     try {
-      const supabase = getSupabaseClient();
+      console.log('🔍 Checking for pending briefings for user:', userId);
       
-      // Trova briefing di oggi o domani non ancora confermati
-      const today = new Date();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      const todayStr = today.toISOString().split('T')[0];
-      const tomorrowStr = tomorrow.toISOString().split('T')[0];
-      
-      // Ottieni briefing
-      const { data: briefings, error: briefingError } = await supabase
-        .from('daily_briefings')
-        .select('*')
-        .in('date', [todayStr, tomorrowStr])
-        .order('date', { ascending: false });
-      
-      if (briefingError) throw briefingError;
-      
-      if (!briefings || briefings.length === 0) {
-        setPendingBriefing(null);
-        setShowModal(false);
+      // Usa fetch diretto invece di supabase client per vedere se è un problema di auth
+      const response = await fetch('/api/briefings/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+
+      if (!response.ok) {
+        console.error('❌ API error:', response.status);
         return;
       }
-      
-      // Per ogni briefing, controlla se l'utente ha già confermato
-      for (const briefing of briefings) {
-        const { data: confirmation } = await supabase
-          .from('briefing_confirmations')
-          .select('id')
-          .eq('briefing_id', briefing.id)
-          .eq('user_id', userId)
-          .single();
-        
-        if (!confirmation) {
-          // Briefing non confermato!
-          setPendingBriefing(briefing);
-          setShowModal(true);
-          return;
-        }
+
+      const data = await response.json();
+      console.log('📋 API Response:', data);
+
+      if (data.pendingBriefing) {
+        console.log('🔴 FOUND UNCONFIRMED BRIEFING! Opening modal...');
+        setPendingBriefing(data.pendingBriefing);
+        setShowModal(true);
+      } else {
+        console.log('✅ All briefings confirmed');
+        setPendingBriefing(null);
+        setShowModal(false);
       }
       
-      // Tutti confermati
-      setPendingBriefing(null);
-      setShowModal(false);
-      
     } catch (error) {
-      console.error('Error checking briefing:', error);
+      console.error('💥 Error checking briefing:', error);
     }
   };
 
@@ -98,25 +72,29 @@ export default function BriefingModal({ userId }: BriefingModalProps) {
     setIsConfirming(true);
     
     try {
-      const supabase = getSupabaseClient();
+      console.log('💾 Saving confirmation for user:', userId, 'briefing:', pendingBriefing.id);
       
-      const { error } = await supabase
-        .from('briefing_confirmations')
-        .insert({
-          briefing_id: pendingBriefing.id,
-          user_id: userId
-        });
+      const response = await fetch('/api/briefings/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          briefingId: pendingBriefing.id,
+          userId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to confirm briefing');
+      }
       
-      if (error) throw error;
-      
-      console.log('✅ Briefing confermato');
+      console.log('✅ Briefing confermato con successo');
       
       // Chiudi modal
       setShowModal(false);
       setPendingBriefing(null);
       
     } catch (error) {
-      console.error('Error confirming briefing:', error);
+      console.error('❌ Error confirming briefing:', error);
       alert('Errore durante la conferma. Riprova.');
     } finally {
       setIsConfirming(false);

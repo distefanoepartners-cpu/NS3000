@@ -102,7 +102,7 @@ export default function BookingDetailPage() {
           Prenotazione del {format(new Date(booking.booking_date), 'dd MMMM yyyy', { locale: it })}
         </p>
         
-        {/* Buttons - Stack on mobile */}
+        {/* Buttons - Stack on mobile - SOLO ADMIN */}
         {isAdmin && (
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
             <button
@@ -121,22 +121,24 @@ export default function BookingDetailPage() {
         )}
       </div>
 
-      {/* Status Badge */}
-      <div className="mb-6">
-        <span className={`inline-flex px-4 py-2 text-sm font-semibold rounded-full ${
-          booking.booking_status?.code === 'confirmed' ? 'bg-green-100 text-green-800' :
-          booking.booking_status?.code === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-          booking.booking_status?.code === 'completed' ? 'bg-blue-100 text-blue-800' :
-          booking.booking_status?.code === 'cancelled' ? 'bg-red-100 text-red-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {booking.booking_status?.name || 'N/D'}
-        </span>
-      </div>
+      {/* Status Badge - SOLO ADMIN */}
+      {isAdmin && (
+        <div className="mb-6">
+          <span className={`inline-flex px-4 py-2 text-sm font-semibold rounded-full ${
+            booking.booking_status?.code === 'confirmed' ? 'bg-green-100 text-green-800' :
+            booking.booking_status?.code === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+            booking.booking_status?.code === 'completed' ? 'bg-blue-100 text-blue-800' :
+            booking.booking_status?.code === 'cancelled' ? 'bg-red-100 text-red-800' :
+            'bg-gray-100 text-gray-800'
+          }`}>
+            {booking.booking_status?.name || 'N/D'}
+          </span>
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 gap-6 ${isAdmin ? 'lg:grid-cols-3' : ''}`}>
         {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={`space-y-6 ${isAdmin ? 'lg:col-span-2' : ''}`}>
           
           {/* Cliente */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
@@ -214,52 +216,54 @@ export default function BookingDetailPage() {
 
         </div>
 
-        {/* Sidebar - Pagamenti */}
-        <div className="space-y-6">
-          
-          {/* Riepilogo Prezzi */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-            <h2 className="text-lg font-bold mb-4">💰 Riepilogo Prezzi</h2>
+        {/* Sidebar - Pagamenti - SOLO ADMIN */}
+        {isAdmin && (
+          <div className="space-y-6">
             
-            <div className="space-y-3">
-              <div className="flex justify-between items-center pb-3 border-b border-blue-400">
-                <span className="text-blue-100">Prezzo Base</span>
-                <span className="font-semibold">€{(booking.base_price || 0).toFixed(2)}</span>
-              </div>
+            {/* Riepilogo Prezzi */}
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+              <h2 className="text-lg font-bold mb-4">💰 Riepilogo Prezzi</h2>
               
-              <div className="flex justify-between items-center pb-3 border-b border-blue-400">
-                <span className="text-blue-100">Prezzo Finale</span>
-                <span className="text-xl font-bold">€{(booking.final_price || 0).toFixed(2)}</span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-blue-100">Acconto Ricevuto</span>
-                <span className="font-semibold">€{(booking.deposit_amount || 0).toFixed(2)}</span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-blue-100">Saldo Ricevuto</span>
-                <span className="font-semibold">€{(booking.balance_amount || 0).toFixed(2)}</span>
-              </div>
-              
-              <div className="flex justify-between items-center pt-3 border-t-2 border-blue-400">
-                <span className="font-bold">Da Ricevere</span>
-                <span className={`text-xl font-bold ${daRicevere > 0 ? 'text-yellow-300' : 'text-green-300'}`}>
-                  €{daRicevere.toFixed(2)}
-                </span>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center pb-3 border-b border-blue-400">
+                  <span className="text-blue-100">Prezzo Base</span>
+                  <span className="font-semibold">€{(booking.base_price || 0).toFixed(2)}</span>
+                </div>
+                
+                <div className="flex justify-between items-center pb-3 border-b border-blue-400">
+                  <span className="text-blue-100">Prezzo Finale</span>
+                  <span className="text-xl font-bold">€{(booking.final_price || 0).toFixed(2)}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-100">Acconto Ricevuto</span>
+                  <span className="font-semibold">€{(booking.deposit_amount || 0).toFixed(2)}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-100">Saldo Ricevuto</span>
+                  <span className="font-semibold">€{(booking.balance_amount || 0).toFixed(2)}</span>
+                </div>
+                
+                <div className="flex justify-between items-center pt-3 border-t-2 border-blue-400">
+                  <span className="font-bold">Da Ricevere</span>
+                  <span className={`text-xl font-bold ${daRicevere > 0 ? 'text-yellow-300' : 'text-green-300'}`}>
+                    €{daRicevere.toFixed(2)}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Metodo Pagamento */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">💳 Pagamento</h2>
-            <div className="text-base text-gray-900">
-              {booking.payment_method?.name || '⚠️ Non impostato'}
+            {/* Metodo Pagamento */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">💳 Pagamento</h2>
+              <div className="text-base text-gray-900">
+                {booking.payment_method?.name || '⚠️ Non impostato'}
+              </div>
             </div>
-          </div>
 
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Edit Modal */}
