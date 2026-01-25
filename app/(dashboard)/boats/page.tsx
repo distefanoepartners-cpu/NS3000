@@ -37,6 +37,7 @@ type Boat = {
   has_rental: boolean // Locazione (Charter self-drive)
   has_charter: boolean // Tour Privati (con skipper)
   has_collective: boolean // Tour Collettivi
+  requires_license: boolean // ⭐ NUOVO: Patente nautica richiesta
   caution_amount: number | null // Cauzione per locazione
   // Prezzi LOCAZIONE (Charter)
   price_charter_apr_may_oct_half_day: number | null
@@ -108,6 +109,7 @@ export default function BoatsPage() {
     has_rental: true,
     has_charter: false,
     has_collective: false,
+    requires_license: false, // ⭐ NUOVO
     caution_amount: '', // Cauzione locazione
     // Prezzi Locazione
     price_charter_apr_may_oct_half_day: '',
@@ -201,6 +203,7 @@ export default function BoatsPage() {
       has_rental: true,
       has_charter: false,
       has_collective: false,
+      requires_license: false, // ⭐ NUOVO
       caution_amount: '', // Reset cauzione
       price_charter_apr_may_oct_half_day: '',
       price_charter_apr_may_oct_full_day: '',
@@ -255,6 +258,7 @@ export default function BoatsPage() {
       has_rental: boat.has_rental ?? true,
       has_charter: boat.has_charter ?? false,
       has_collective: boat.has_collective ?? false,
+      requires_license: formData.requires_license, // ⭐ NUOVO
       caution_amount: boat.caution_amount?.toString() || '', // Carica cauzione
       price_charter_apr_may_oct_half_day: boat.price_charter_apr_may_oct_half_day?.toString() || '',
       price_charter_apr_may_oct_full_day: boat.price_charter_apr_may_oct_full_day?.toString() || '',
@@ -608,7 +612,36 @@ export default function BoatsPage() {
                   </div>
                 </div>
               </div>
-
+            {/* ⭐ REQUISITI LOCAZIONE */}
+            {formData.has_rental && (
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <h3 className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/>
+                  </svg>
+                  Requisiti Locazione
+                </h3>
+                
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="requires_license"
+                    checked={formData.requires_license}
+                    onChange={(e) => setFormData({ ...formData, requires_license: e.target.checked })}
+                    className="w-4 h-4 text-amber-600 rounded focus:ring-2 focus:ring-amber-500 mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="requires_license" className="cursor-pointer text-sm font-medium text-gray-900">
+                      Richiede Patente Nautica
+                    </Label>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Seleziona se questa imbarcazione richiede patente nautica valida per la locazione.
+                      I clienti verranno avvisati durante la prenotazione.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
               {/* LISTINO LOCAZIONE */}
               {formData.has_rental && (
                 <div className="border-t pt-6 mt-6">
