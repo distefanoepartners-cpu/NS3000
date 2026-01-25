@@ -14,22 +14,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
-    // Calcola oggi e domani
+    // Calcola data di oggi (inizio) per cercare tutti i briefing futuri
     const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
     const todayStr = today.toISOString().split('T')[0];
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-    console.log('🔍 Checking briefings for dates:', { today: todayStr, tomorrow: tomorrowStr });
+    console.log('🔍 Checking briefings from date:', todayStr);
 
-    // Ottieni briefing di oggi/domani
+    // Ottieni TUTTI i briefing dalla data odierna in poi (non solo oggi/domani)
     const { data: briefings, error: briefingError } = await supabase
       .from('daily_briefings')
       .select('*')
-      .in('date', [todayStr, tomorrowStr])
-      .order('date', { ascending: false });
+      .gte('date', todayStr)  // Tutti i briefing da oggi in poi
+      .order('date', { ascending: true });  // Ordina per data crescente (più vicini prima)
 
     if (briefingError) {
       console.error('❌ Briefing error:', briefingError);
@@ -39,10 +35,11 @@ export async function POST(request: Request) {
     console.log('📋 Found briefings:', briefings?.length || 0);
 
     if (!briefings || briefings.length === 0) {
+      console.log('ℹ️ No future briefings found');
       return NextResponse.json({ pendingBriefing: null });
     }
 
-    // Per ogni briefing, controlla se l'utente ha confermato
+    // Per ogni briefing (in ordine di data), controlla se l'utente ha confermato
     for (const briefing of briefings) {
       const { data: confirmation } = await supabase
         .from('briefing_confirmations')
@@ -53,8 +50,17 @@ export async function POST(request: Request) {
 
       if (!confirmation) {
         // Briefing non confermato trovato!
-        console.log('🔴 Found unconfirmed briefing:', briefing.id);
+        console.log('🔴 Found unconfirmed briefing:', {
+          id: briefing.id,
+          date: briefing.date,
+          bookings: briefing.bookings_count
+        });
         return NextResponse.json({ pendingBriefing: briefing });
+      } else {
+        console.log('✅ Briefing confirmed:', {
+          id: briefing.id,
+          date: briefing.date
+        });
       }
     }
 

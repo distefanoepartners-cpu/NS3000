@@ -1,8 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/cron/create-briefing",
-      "schedule": "0 20 * * *"
+      "path": "/api/cron/briefing-17",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/briefing-07",
+      "schedule": "0 7 * * *"
     }
   ]
 }

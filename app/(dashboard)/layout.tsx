@@ -10,6 +10,7 @@ import { LogOut, Menu, X, Ship, Anchor, Calendar, MapPin, Users, Building2, BarC
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import NotificationManager from '@/components/NotificationManager'
 import BriefingModal from '@/components/BriefingModal'
+import InAppNotificationHandler from '@/components/InAppNotificationHandler';
 
 function DashboardLayoutContent({
   children,
@@ -155,7 +156,9 @@ function DashboardLayoutContent({
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
-
+      {/* Handler notifiche in-app quando app è visibile */}
+      <InAppNotificationHandler />
+      
       {/* Briefing Modal - DEVE essere letto */}
       {user && <BriefingModal userId={user.id} />}
     </div>

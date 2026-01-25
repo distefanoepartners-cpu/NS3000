@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import CreateCustomerModal from './CreateCustomerModal'
+import { LicenseRequiredAlert } from './booking/LicenseRequiredAlert'
 
 interface BookingModalProps {
   isOpen: boolean
@@ -70,7 +71,8 @@ export default function BookingModal({
   const [showCreateCustomer, setShowCreateCustomer] = useState(false)
   const [calculatingPrice, setCalculatingPrice] = useState(false)
   const [availableServices, setAvailableServices] = useState<any[]>([])
-
+  const [selectedBoat, setSelectedBoat] = useState<any>(null) // ⭐ STATO BARCA SELEZIONATA
+ 
   // Calcolo automatico "Da ricevere"
   const daRicevere = Math.max(0, 
     (formData.final_price || 0) - (formData.deposit_amount || 0) - (formData.balance_amount || 0)
@@ -118,6 +120,10 @@ export default function BookingModal({
           supplier_id: booking.supplier_id || '',
           skipper_id: booking.skipper_id || ''
         })
+        if (booking.boat_id && options.boats.length > 0) {
+        const boat = options.boats.find((b: any) => b.id === booking.boat_id)
+        setSelectedBoat(boat || null)
+  }
         // Customer name will be set by loadOptions when options arrive
       } else {
         // New booking - reset customer search
@@ -640,8 +646,10 @@ export default function BookingModal({
                     <select
                       value={formData.boat_id}
                       onChange={(e) => {
-                        setFormData({ ...formData, boat_id: e.target.value, service_id: '' })
-                      }}
+                      const boat = options.boats.find((b: any) => b.id === e.target.value) // ⭐ TROVA BARCA
+                      setSelectedBoat(boat || null) // ⭐ SALVA BARCA
+                      setFormData({ ...formData, boat_id: e.target.value, service_id: '' })
+}}
                       className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                       required
                     >
@@ -703,7 +711,12 @@ export default function BookingModal({
                     </select>
                   </div>
                 </div>
-
+            {/* ⭐ ALERT PATENTE NAUTICA */}
+                {selectedBoat?.requires_license && (
+                  <LicenseRequiredAlert 
+                    boatName={selectedBoat.name}
+                  />
+                )}
                 {/* Tipo Servizio */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Servizio</label>
