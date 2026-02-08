@@ -26,6 +26,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Credenziali non valide' }, { status: 401 })
     }
 
+    // ⭐ Se è un partner, verifica che il fornitore associato sia attivo
+    if (user.role === 'partner' && user.supplier_id) {
+      const { data: supplier } = await supabaseAdmin
+        .from('suppliers')
+        .select('is_active, is_partner, name')
+        .eq('id', user.supplier_id)
+        .single()
+
+      if (!supplier || !supplier.is_active || !supplier.is_partner) {
+        return NextResponse.json({ 
+          error: 'Account partner disattivato. Contatta Blu Alliance.' 
+        }, { status: 403 })
+      }
+    }
+
     // Aggiorna last_login
     await supabaseAdmin
       .from('users')
@@ -43,12 +58,13 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 24 * 7 // 7 giorni
     })
 
-    // Cookie con info utente (per accesso rapido)
+    // ⭐ Cookie con info utente (include supplier_id per partner)
     cookieStore.set('user', JSON.stringify({
       id: user.id,
       email: user.email,
       full_name: user.full_name,
-      role: user.role
+      role: user.role,
+      supplier_id: user.supplier_id || null  // ⭐ NUOVO
     }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -62,7 +78,8 @@ export async function POST(request: Request) {
         id: user.id,
         email: user.email,
         full_name: user.full_name,
-        role: user.role
+        role: user.role,
+        supplier_id: user.supplier_id || null  // ⭐ NUOVO
       }
     })
   } catch (error) {

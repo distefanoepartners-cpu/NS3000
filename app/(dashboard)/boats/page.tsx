@@ -241,26 +241,31 @@ export default function BoatsPage() {
   }
 
   const handleEdit = (boat: Boat) => {
-    setEditingBoat(boat)
-    setFormData({
-      name: boat.name,
-      boat_type: boat.boat_type,
-      category: boat.category,
-      capacity: boat.max_passengers?.toString() || '',
-      length: boat.length_meters?.toString() || '',
-      engine_power: boat.technical_specs?.engine_power?.toString() || '',
-      fuel_type: boat.technical_specs?.fuel_type || '',
-      year: boat.technical_specs?.year?.toString() || '',
-      registration_number: boat.registration_number || '',
-      company_name: boat.company_name || '',
-      is_active: boat.is_active,
-      notes: boat.description || '',
-      has_rental: boat.has_rental ?? true,
-      has_charter: boat.has_charter ?? false,
-      has_collective: boat.has_collective ?? false,
-      requires_license: formData.requires_license, // ⭐ NUOVO
-      caution_amount: boat.caution_amount?.toString() || '', // Carica cauzione
-      price_charter_apr_may_oct_half_day: boat.price_charter_apr_may_oct_half_day?.toString() || '',
+  console.log('✏️ EDITING BOAT:', boat.name)
+  console.log('✏️ boat.requires_license:', boat.requires_license)
+  console.log('✏️ boat object completo:', boat)
+  
+  setEditingBoat(boat)
+  
+  // ⭐ CREA L'OGGETTO PRIMA
+  const newFormData = {
+    name: boat.name,
+    boat_type: boat.boat_type,
+    category: boat.category,
+    capacity: boat.max_passengers?.toString() || '',
+    length: boat.length_meters?.toString() || '',
+    engine_power: boat.technical_specs?.engine_power?.toString() || '',
+    fuel_type: boat.technical_specs?.fuel_type || '',
+    year: boat.technical_specs?.year?.toString() || '',
+    registration_number: boat.registration_number || '',
+    company_name: boat.company_name || '',
+    is_active: boat.is_active,
+    notes: boat.description || '',
+    has_rental: boat.has_rental ?? true,
+    has_charter: boat.has_charter ?? false,
+    has_collective: boat.has_collective ?? false,
+    requires_license: boat.requires_license ?? false, // ⭐ QUESTA RIGA
+    caution_amount: boat.caution_amount?.toString() || '',      price_charter_apr_may_oct_half_day: boat.price_charter_apr_may_oct_half_day?.toString() || '',
       price_charter_apr_may_oct_full_day: boat.price_charter_apr_may_oct_full_day?.toString() || '',
       price_charter_apr_may_oct_week: boat.price_charter_apr_may_oct_week?.toString() || '',
       price_charter_june_half_day: boat.price_charter_june_half_day?.toString() || '',
@@ -272,10 +277,15 @@ export default function BoatsPage() {
       price_charter_august_half_day: boat.price_charter_august_half_day?.toString() || '',
       price_charter_august_full_day: boat.price_charter_august_full_day?.toString() || '',
       price_charter_august_week: boat.price_charter_august_week?.toString() || ''
-    })
-    setImagePreview(null)
-    setDialogOpen(true)
-  }
+    }
+    // ⭐ LOG PRIMA DI SETTARE
+  console.log('✏️ newFormData.requires_license:', newFormData.requires_license)
+  
+  setFormData(newFormData)
+  
+  setImagePreview(null)
+  setDialogOpen(true)
+}
 
   const handleSave = async () => {
     try {
@@ -305,7 +315,9 @@ export default function BoatsPage() {
         has_rental: formData.has_rental,
         has_charter: formData.has_charter,
         has_collective: formData.has_collective,
+        requires_license: formData.requires_license,
         caution_amount: formData.caution_amount ? parseFloat(formData.caution_amount) : null, // Salva cauzione
+                 
         // Prezzi Locazione
         price_charter_apr_may_oct_half_day: formData.price_charter_apr_may_oct_half_day ? parseFloat(formData.price_charter_apr_may_oct_half_day) : null,
         price_charter_apr_may_oct_full_day: formData.price_charter_apr_may_oct_full_day ? parseFloat(formData.price_charter_apr_may_oct_full_day) : null,
@@ -320,7 +332,31 @@ export default function BoatsPage() {
         price_charter_august_full_day: formData.price_charter_august_full_day ? parseFloat(formData.price_charter_august_full_day) : null,
         price_charter_august_week: formData.price_charter_august_week ? parseFloat(formData.price_charter_august_week) : null
       }
+// ⭐ AGGIUNGI QUESTI LOG
+    console.log('💾 SALVATAGGIO BARCA')
+    console.log('📤 formData.requires_license:', formData.requires_license)
+    console.log('📤 payload.requires_license:', payload.requires_license)
+    console.log('📤 PAYLOAD COMPLETO:', JSON.stringify(payload, null, 2))
 
+    if (editingBoat) {
+      const response = await fetch(`/api/boats/${editingBoat.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      const result = await response.json()
+      console.log('📥 RISPOSTA API:', result)
+      console.log('📥 result.requires_license:', result.requires_license)
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Errore salvataggio')
+      }
+
+      toast.success('Barca aggiornata!')
+    } else {
+      // ... creazione nuova barca
+    }
       if (editingBoat) {
         await fetch(`/api/boats/${editingBoat.id}`, {
           method: 'PUT',
@@ -360,30 +396,36 @@ export default function BoatsPage() {
   }
 
   async function openServicesModal(boat: Boat) {
-    setSelectedBoat(boat)
+  setSelectedBoat(boat)
 
-    try {
-      const res = await fetch(`/api/boats/${boat.id}/services`)
-      const data = await res.json()
+  try {
+    const res = await fetch(`/api/boats/${boat.id}/services`)
+    const data = await res.json()
 
-      const servicesMap: {[key: string]: BoatService} = {}
-      data.forEach((bs: any) => {
-        servicesMap[bs.service_id] = {
-          service_id: bs.service_id,
-          price_apr_may_oct: bs.price_apr_may_oct,
-          price_june: bs.price_june,
-          price_july_sept: bs.price_july_sept,
-          price_august: bs.price_august
-        }
-      })
+    console.log('📋 Servizi caricati dal database:', data)
 
-      setBoatServices(servicesMap)
-    } catch (error) {
-      console.error('Error loading boat services:', error)
-    }
+    const servicesMap: {[key: string]: BoatService} = {}
+    data.forEach((bs: any) => {
+      // ⭐ AGGIORNATO: Legge prima dai campi vecchi (tour), poi dai _full_day come fallback
+      servicesMap[bs.service_id] = {
+        service_id: bs.service_id,
+        price_apr_may_oct: bs.price_apr_may_oct ?? bs.price_apr_may_oct_full_day ?? null,
+        price_june: bs.price_june ?? bs.price_june_full_day ?? null,
+        price_july_sept: bs.price_july_sept ?? bs.price_july_sept_full_day ?? null,
+        price_august: bs.price_august ?? bs.price_august_full_day ?? null
+      }
+      
+      console.log(`✅ Servizio ${bs.rental_services?.name || bs.service_id}:`, servicesMap[bs.service_id])
+    })
 
-    setShowServicesModal(true)
+    console.log('📦 ServicesMap finale:', servicesMap)
+    setBoatServices(servicesMap)
+  } catch (error) {
+    console.error('Error loading boat services:', error)
   }
+
+  setShowServicesModal(true)
+}
 
   function toggleService(serviceId: string) {
     setBoatServices(prev => {
@@ -624,12 +666,17 @@ export default function BoatsPage() {
                 
                 <div className="flex items-start gap-3">
                   <input
-                    type="checkbox"
-                    id="requires_license"
-                    checked={formData.requires_license}
-                    onChange={(e) => setFormData({ ...formData, requires_license: e.target.checked })}
-                    className="w-4 h-4 text-amber-600 rounded focus:ring-2 focus:ring-amber-500 mt-0.5"
-                  />
+  type="checkbox"
+  id="requires_license"
+  checked={formData.requires_license}
+  onChange={(e) => {
+    console.log('🔘 Checkbox clicked! New value:', e.target.checked)
+    console.log('🔘 formData PRIMA:', formData.requires_license)
+    setFormData({ ...formData, requires_license: e.target.checked })
+    console.log('🔘 formData DOPO:', { ...formData, requires_license: e.target.checked }.requires_license)
+  }}
+  className="w-4 h-4 text-amber-600 rounded focus:ring-2 focus:ring-amber-500 mt-0.5"
+/>
                   <div className="flex-1">
                     <Label htmlFor="requires_license" className="cursor-pointer text-sm font-medium text-gray-900">
                       Richiede Patente Nautica

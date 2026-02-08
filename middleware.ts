@@ -1,4 +1,3 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -22,14 +21,13 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/',
-    '/boats/:path*',
-    '/services/:path*',
-    '/bookings/:path*',
-    '/customers/:path*',
-    '/suppliers/:path*',
-    '/planning/:path*',
-    '/reports/:path*',
-    '/login',
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization)
+     * - favicon.ico, icon-*.png, manifest.json, sw.js (PWA/static assets)
+     * - api/auth (auth endpoints)
+     */
+    '/((?!_next/static|_next/image|favicon\\.ico|icon-.*\\.png|manifest\\.json|sw\\.js|api/auth).*)',
   ],
 }

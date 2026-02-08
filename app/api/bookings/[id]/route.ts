@@ -69,7 +69,15 @@ export async function PUT(
         deposit_percentage: body.deposit_percentage || 30,
         booking_source: body.booking_source || 'online',
         supplier_id: body.supplier_id || null,
-        skipper_id: body.skipper_id || null
+        skipper_id: body.skipper_id || null,
+        // Documento cliente
+        has_license: body.has_license || false,
+        document_type: body.document_type || null,
+        document_number: body.document_number || null,
+        document_expiry: body.document_expiry || null,
+        booking_type: body.booking_type || null,
+        // Documenti multipli per tour collettivi (JSONB)
+        passengers_documents: body.passengers_documents || null
       })
       .eq('id', params.id)
       .select()

@@ -148,6 +148,9 @@ async function createBriefing(today: Date, todayEnd: Date, dateStr: string) {
 
   console.log('✅ Briefing creato per oggi:', briefing.id);
 
+  // ⭐ Invia push notification a tutti gli utenti admin/staff
+  await sendBriefingPush(enrichedBookings.length, totalPassengers, briefing.id);
+
   return {
     success: true,
     message: '✅ Reminder inviato (07:00)',
@@ -220,6 +223,9 @@ async function updateBriefing(briefingId: string, today: Date, todayEnd: Date, d
 
   console.log('✅ Briefing aggiornato per oggi:', briefingId);
 
+  // ⭐ Invia push notification a tutti gli utenti admin/staff
+  await sendBriefingPush(enrichedBookings.length, totalPassengers, briefingId);
+
   return {
     success: true,
     message: '✅ Reminder aggiornato (07:00)',
@@ -230,4 +236,64 @@ async function updateBriefing(briefingId: string, today: Date, todayEnd: Date, d
       total_passengers: totalPassengers
     }
   };
+}
+
+// ⭐ Invia push notification per il briefing
+async function sendBriefingPush(bookingsCount: number, totalPassengers: number, briefingId: string) {
+  try {
+    // Ottieni tutti gli utenti admin e staff (non partner)
+    const { data: users } = await supabase
+      .from('users')
+      .select('id')
+      .in('role', ['admin', 'staff'])
+      .eq('is_active', true);
+
+    if (!users || users.length === 0) {
+      console.log('⚠️ Nessun utente admin/staff trovato per push');
+      return;
+    }
+
+    const userIds = users.map(u => u.id);
+
+    const today = new Date().toLocaleDateString('it-IT', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    });
+
+    const title = `📋 Briefing ${today}`;
+    const message = bookingsCount > 0
+      ? `Oggi ${bookingsCount} prenotazioni, ${totalPassengers} passeggeri`
+      : 'Nessuna prenotazione per oggi';
+
+    // Chiama l'API send-push
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'http://localhost:3000');
+
+    const res = await fetch(`${baseUrl}/api/notifications/send-push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        message,
+        userIds,
+        tag: 'briefing-daily',
+        data: {
+          type: 'briefing',
+          briefingId,
+          url: '/'
+        }
+      })
+    });
+
+    if (res.ok) {
+      const result = await res.json();
+      console.log(`📤 Push briefing inviate: ${result.sent} successi, ${result.failed} fallite`);
+    } else {
+      console.error('❌ Errore invio push briefing:', await res.text());
+    }
+  } catch (error) {
+    console.error('❌ Errore sendBriefingPush:', error);
+  }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import CreateCustomerModal from './CreateCustomerModal'
@@ -47,7 +47,14 @@ export default function BookingModal({
     // NUOVI CAMPI
     booking_source: 'online', // 'online', 'in_person', 'supplier'
     supplier_id: '', // ID fornitore (se source = supplier)
-    skipper_id: '' // ID skipper assegnato
+    skipper_id: '', // ID skipper assegnato
+    // ⭐ CAMPI DOCUMENTO E PATENTE
+    has_license: false, // Patente nautica
+    document_type: '', // Tipo documento
+    document_number: '', // Numero documento
+    document_expiry: '', // Scadenza documento
+    // ⭐ Documenti multipli per collettivi (JSONB)
+    passengers_documents: [] as Array<{type: string, number: string, expiry: string}>
   })
 
   const [options, setOptions] = useState({
@@ -94,11 +101,19 @@ export default function BookingModal({
       loadOptions()
       
       if (booking) {
+        console.log('📂 CARICO PRENOTAZIONE:', {
+          id: booking.id,
+          service_id: booking.service_id,
+          service_type: booking.service_type,
+          booking_type: booking.booking_type,
+          boat_id: booking.boat_id,
+          passengers_documents: booking.passengers_documents
+        })
         setFormData({
           customer_id: booking.customer_id || '',
           boat_id: booking.boat_id || '',
           service_id: booking.service_id || '',
-          service_type: booking.service_type || 'rental',
+          service_type: booking.booking_type === 'collective' ? 'collective' : (booking.service_type || booking.booking_type || 'rental'),
           booking_date: booking.booking_date || '',
           time_slot: booking.time_slot || '',
           num_passengers: booking.num_passengers || 1,
@@ -118,7 +133,14 @@ export default function BookingModal({
           // NUOVI CAMPI v1.4.0+
           booking_source: booking.booking_source || 'online',
           supplier_id: booking.supplier_id || '',
-          skipper_id: booking.skipper_id || ''
+          skipper_id: booking.skipper_id || '',
+          // ⭐ CAMPI DOCUMENTO E PATENTE
+          has_license: booking.has_license || false,
+          document_type: booking.document_type || '',
+          document_number: booking.document_number || '',
+          document_expiry: booking.document_expiry || '',
+          // ⭐ Documenti multipli per collettivi
+          passengers_documents: booking.passengers_documents || []
         })
         if (booking.boat_id && options.boats.length > 0) {
         const boat = options.boats.find((b: any) => b.id === booking.boat_id)
@@ -245,6 +267,47 @@ export default function BookingModal({
       setAvailableServices(options.rentalServices)
     }
   }, [options.rentalServices])
+
+  // ⭐ Filtra fasce orarie in base al servizio scelto
+  const availableTimeSlots = useMemo(() => {
+    const allSlots = [
+      { value: 'full_day', label: '☀️ Giornata Intera' },
+      { value: 'morning', label: '🌅 Half Day 9-13' },
+      { value: 'afternoon', label: '🌇 Half Day 14-18' },
+      { value: 'evening', label: '🌙 Serale' },
+      { value: 'custom', label: '⏰ Personalizzata' },
+    ]
+
+    // Se è un servizio di tipo tour/charter, filtra in base al nome
+    if (formData.service_id && formData.service_type !== 'rental') {
+      const selectedService = availableServices.find((s: any) => s.id === formData.service_id)
+      if (selectedService) {
+        const name = (selectedService.name || '').toLowerCase()
+        if (name.includes('half day')) {
+          // Half Day → solo mattina e pomeriggio + personalizzata
+          return allSlots.filter(s => s.value === 'morning' || s.value === 'afternoon' || s.value === 'custom')
+        } else if (name.includes('full day') || name.includes('capri')) {
+          // Full Day o Capri → solo giornata intera + personalizzata
+          return allSlots.filter(s => s.value === 'full_day' || s.value === 'custom')
+        }
+      }
+    }
+
+    // Locazione o nessun filtro → tutte le opzioni
+    return allSlots
+  }, [formData.service_id, formData.service_type, availableServices])
+
+  // ⭐ Auto-seleziona fascia oraria quando le opzioni si riducono a una sola scelta principale
+  useEffect(() => {
+    const mainSlots = availableTimeSlots.filter(s => s.value !== 'custom')
+    if (mainSlots.length === 1) {
+      // Solo una fascia principale disponibile → auto-seleziona
+      setFormData(prev => ({ ...prev, time_slot: mainSlots[0].value }))
+    } else if (mainSlots.length > 1 && !mainSlots.find(s => s.value === formData.time_slot)) {
+      // La fascia attuale non è più tra quelle disponibili → resetta
+      setFormData(prev => ({ ...prev, time_slot: '' }))
+    }
+  }, [availableTimeSlots])
 
   // Calculate price - DISABILITATO: usiamo calcolo diretto dalla barca
   // useEffect(() => {
@@ -494,6 +557,26 @@ export default function BookingModal({
     }
   }, [formData.service_id, formData.num_passengers, options.rentalServices, booking])
 
+  // ⭐ Sincronizza documenti dinamici ai passeggeri per collettivi
+  useEffect(() => {
+    if (formData.service_type === 'collective' && formData.num_passengers > 0) {
+      const currentDocs = formData.passengers_documents.length
+      const numPax = formData.num_passengers
+      
+      if (currentDocs < numPax) {
+        // Aggiungi documenti mancanti
+        const newDocs = [...formData.passengers_documents]
+        for (let i = currentDocs; i < numPax; i++) {
+          newDocs.push({ type: '', number: '', expiry: '' })
+        }
+        setFormData(prev => ({ ...prev, passengers_documents: newDocs }))
+      } else if (currentDocs > numPax) {
+        // Rimuovi quelli in eccesso
+        setFormData(prev => ({ ...prev, passengers_documents: prev.passengers_documents.slice(0, numPax) }))
+      }
+    }
+  }, [formData.num_passengers, formData.service_type])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
@@ -677,9 +760,16 @@ export default function BookingModal({
                               return show
                             }
                             
-                            // Se servizio è tour/transfer/collective → solo barche con has_charter o has_collective
-                            const show = b.has_charter === true || b.has_collective === true
-                            console.log(`  → ${show ? '✅' : '❌'} ${b.name} (has_charter=${b.has_charter}, has_collective=${b.has_collective})`)
+                            // Collective → solo barche con has_collective
+                            if (selectedService.service_type === 'collective') {
+                              const show = b.has_collective === true
+                              console.log(`  → ${show ? '✅' : '❌'} ${b.name} (has_collective=${b.has_collective})`)
+                              return show
+                            }
+                            
+                            // Tour/charter/transfer → solo barche con has_charter
+                            const show = b.has_charter === true
+                            console.log(`  → ${show ? '✅' : '❌'} ${b.name} (has_charter=${b.has_charter})`)
                             return show
                           }
                           
@@ -692,11 +782,14 @@ export default function BookingModal({
                               has_charter: b.has_charter
                             })
                             
-                            // LOGICA CORRETTA: rental = LOCAZIONE usa has_rental, charter/tour usa has_charter
+                            // LOGICA CORRETTA: rental = LOCAZIONE usa has_rental, collective usa has_collective, charter/tour usa has_charter
                             if (formData.service_type === 'rental') {
                               return b.has_rental === true
                             }
-                            return b.has_charter === true || b.has_collective === true
+                            if (formData.service_type === 'collective') {
+                              return b.has_collective === true
+                            }
+                            return b.has_charter === true
                           }
                           
                           // Default: mostra tutte
@@ -771,7 +864,7 @@ export default function BookingModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Fascia Oraria</label>
                     <select
-                      value={formData.time_slot === 'morning' || formData.time_slot === 'afternoon' || formData.time_slot === 'full_day' ? formData.time_slot : 'custom'}
+                      value={formData.time_slot === 'morning' || formData.time_slot === 'afternoon' || formData.time_slot === 'full_day' || formData.time_slot === 'evening' ? formData.time_slot : 'custom'}
                       onChange={(e) => {
                         if (e.target.value === 'custom') {
                           setFormData({ ...formData, time_slot: '' })
@@ -782,11 +875,9 @@ export default function BookingModal({
                       className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     >
                       <option value="">Seleziona fascia...</option>
-                      <option value="full_day">☀️ Full Day </option>
-                      <option value="morning">🌅 Half Day Mattina</option>
-                      <option value="afternoon">🌇 Half Day Pomeriggio</option>
-                      <option value="evening">🌙 Serale</option>
-                      <option value="custom">⏰ Personalizzata</option>
+                      {availableTimeSlots.map(slot => (
+                        <option key={slot.value} value={slot.value}>{slot.label}</option>
+                      ))}
                     </select>
                     
                     {/* Campo testo per fascia personalizzata */}
@@ -833,6 +924,152 @@ export default function BookingModal({
                       className="w-full px-2 md:px-3 py-2 border border-gray-300 rounded-lg text-sm"
                       placeholder="0"
                     />
+                  </div>
+                </div>
+
+                {/* ⭐ NUOVO - Dati Documento e Patente */}
+                <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                  <h3 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
+                    </svg>
+                    Documento e Patente Nautica
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    {/* Checkbox Patente */}
+                    <div className="flex items-center gap-3 p-2 bg-white rounded border border-amber-300">
+                      <input
+                        type="checkbox"
+                        id="has_license"
+                        checked={formData.has_license}
+                        onChange={(e) => setFormData({ ...formData, has_license: e.target.checked })}
+                        className="w-4 h-4 text-amber-600 rounded"
+                      />
+                      <label htmlFor="has_license" className="cursor-pointer text-sm font-medium text-gray-900">
+                        ⛵ Cliente possiede Patente Nautica valida
+                      </label>
+                    </div>
+
+                    {/* COLLETTIVI: Documenti multipli dinamici */}
+                    {formData.service_type === 'collective' ? (
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-500 italic">📄 Documento per ciascun partecipante (facoltativo)</p>
+                        
+                        {formData.passengers_documents.map((doc: any, idx: number) => (
+                          <div key={idx} className="bg-white border border-amber-300 rounded p-2 relative">
+                            <span className="absolute top-1.5 left-2 text-xs font-bold text-amber-600">#{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = formData.passengers_documents.filter((_: any, i: number) => i !== idx)
+                                setFormData({ ...formData, passengers_documents: updated })
+                              }}
+                              className="absolute top-1.5 right-2 text-red-400 hover:text-red-600 text-sm font-bold"
+                            >×</button>
+                            
+                            <div className="grid grid-cols-3 gap-2 mt-4">
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-0.5">Tipo</label>
+                                <select
+                                  value={doc.type || ''}
+                                  onChange={(e) => {
+                                    const updated = [...formData.passengers_documents]
+                                    updated[idx] = { ...updated[idx], type: e.target.value }
+                                    setFormData({ ...formData, passengers_documents: updated })
+                                  }}
+                                  className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs"
+                                >
+                                  <option value="">Seleziona...</option>
+                                  <option value="carta_identita">Carta d'Identità</option>
+                                  <option value="passaporto">Passaporto</option>
+                                  <option value="patente">Patente</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-0.5">Numero</label>
+                                <input
+                                  type="text"
+                                  value={doc.number || ''}
+                                  onChange={(e) => {
+                                    const updated = [...formData.passengers_documents]
+                                    updated[idx] = { ...updated[idx], number: e.target.value }
+                                    setFormData({ ...formData, passengers_documents: updated })
+                                  }}
+                                  placeholder="es. AB123456"
+                                  className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-0.5">Scadenza</label>
+                                <input
+                                  type="date"
+                                  value={doc.expiry || ''}
+                                  onChange={(e) => {
+                                    const updated = [...formData.passengers_documents]
+                                    updated[idx] = { ...updated[idx], expiry: e.target.value }
+                                    setFormData({ ...formData, passengers_documents: updated })
+                                  }}
+                                  className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              passengers_documents: [...formData.passengers_documents, { type: '', number: '', expiry: '' }]
+                            })
+                          }}
+                          className="w-full py-1.5 border border-dashed border-amber-400 rounded text-xs text-amber-600 hover:bg-amber-100 transition-colors"
+                        >
+                          ➕ Aggiungi Documento Partecipante
+                        </button>
+                      </div>
+                    ) : (
+                      /* LOCAZIONE / TOUR PRIVATI: Documento singolo */
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Tipo Documento</label>
+                          <select
+                            value={formData.document_type}
+                            onChange={(e) => setFormData({ ...formData, document_type: e.target.value })}
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                          >
+                            <option value="">Seleziona...</option>
+                            <option value="carta_identita">Carta d'Identità</option>
+                            <option value="passaporto">Passaporto</option>
+                            <option value="patente">Patente</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Numero Documento</label>
+                          <input
+                            type="text"
+                            value={formData.document_number}
+                            onChange={(e) => setFormData({ ...formData, document_number: e.target.value })}
+                            placeholder="es. AB123456"
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Scadenza</label>
+                          <input
+                            type="date"
+                            value={formData.document_expiry}
+                            onChange={(e) => setFormData({ ...formData, document_expiry: e.target.value })}
+                            min={new Date().toISOString().split('T')[0]}
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
