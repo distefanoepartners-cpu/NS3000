@@ -6,11 +6,10 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { LogOut, Menu, X, Ship, Anchor, Calendar, MapPin, Users, Building2, BarChart3, UserCircle, Settings, ChevronDown, ChevronRight } from 'lucide-react'
+import { LogOut, Menu, X, Ship, Anchor, Calendar, MapPin, Users, Building2, BarChart3, UserCircle, Settings, ChevronDown, ChevronRight, DollarSign, Tag } from 'lucide-react'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
-import NotificationManager from '@/components/NotificationManager'
 import BriefingModal from '@/components/BriefingModal'
-import InAppNotificationHandler from '@/components/InAppNotificationHandler';
+// ⭐ 2026-05-22: Rimosso NotificationManager + InAppNotificationHandler (feature push notifications dismessa)
 
 function DashboardLayoutContent({
   children,
@@ -42,7 +41,8 @@ function DashboardLayoutContent({
   const mainMenuItems = [
     { href: '/', label: 'Dashboard', icon: BarChart3, roles: ['admin', 'staff'] },
     { href: '/bookings', label: 'Prenotazioni', icon: Calendar, roles: ['admin', 'staff', 'partner'] },
-    { href: '/collective-tours', label: 'Tour Collettivi', icon: Users, roles: ['admin', 'staff'] },
+    { href: '/navi', label: 'Arrivi Navi', icon: Ship, roles: ['admin', 'staff'] },
+    { href: '/collective-tours', label: 'Tour Collettivi', icon: Users, roles: ['admin'] }, 
     { href: '/partner/bookings', label: 'Le mie Prenotazioni', icon: Calendar, roles: ['partner'] },
     { href: '/partner/new-booking', label: 'Nuova Prenotazione', icon: MapPin, roles: ['partner'] },
   ]
@@ -54,9 +54,15 @@ function DashboardLayoutContent({
     { href: '/skippers', label: 'Skipper', icon: UserCircle },
     { href: '/customers', label: 'Clienti', icon: Users },
     { href: '/suppliers', label: 'Fornitori', icon: Building2 },
+    { href: '/partners', label: 'Partners', icon: Building2 },
     { href: '/reports', label: 'Reports', icon: BarChart3 },
+    { href: '/reports/invoice', label: 'Fatturazione Fornitori', icon: DollarSign },
     { href: '/users', label: 'Gestione Utenti', icon: Settings },
     { href: '/briefings', label: 'Promemoria', icon: Calendar },
+    { href: '/prezzi', label: 'Listino Prezzi', icon: DollarSign },
+    { href: '/prezzi-speciali', label: 'Prezzi Speciali', icon: Tag },
+    { href: '/statistics', label: 'Statistiche', icon: BarChart3, roles: ['admin'] },
+    { href: '/settlements', label: 'Settlement Partner', icon: DollarSign },
   ]
 
   return (
@@ -144,9 +150,9 @@ function DashboardLayoutContent({
               )}
             </nav>
 
-            {/* Desktop Actions: Notifications + Logout */}
+            {/* Desktop Actions: Logout */}
             <div className="hidden md:flex items-center gap-3">
-              {user && !isPartner && <NotificationManager userId={user.id} />}
+              {/* ⭐ 2026-05-22: Rimosso <NotificationManager /> (feature dismessa) */}
               <Button variant="outline" onClick={handleLogout} size="sm" className="gap-2">
                 <LogOut className="h-4 w-4" />
                 Esci
@@ -171,13 +177,6 @@ function DashboardLayoutContent({
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 bg-white">
             <div className="px-4 py-2 space-y-1">
-              {/* Mobile Notifications (non per partner) */}
-              {user && !isPartner && (
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <NotificationManager userId={user.id} />
-                </div>
-              )}
-              
               {/* Menu principale mobile */}
               {mainMenuItems.filter(item => item.roles.includes(user?.role || 'staff')).map((item) => {
                 const Icon = item.icon
@@ -250,8 +249,7 @@ function DashboardLayoutContent({
         {children}
       </main>
       
-      {/* Handler notifiche in-app quando app è visibile */}
-      <InAppNotificationHandler />
+      {/* ⭐ 2026-05-22: Rimosso <InAppNotificationHandler /> (feature dismessa) */}
       
       {/* Briefing Modal - DEVE essere letto (solo admin/staff) */}
       {user && !isPartner && <BriefingModal userId={user.id} />}
