@@ -63,7 +63,7 @@ const bookingLangCache: Record<string, string> = {}
 const EMPTY_FORM = {
   customer_id: '', boat_id: '', service_id: '', service_type: 'rental',
   booking_date: '', booking_end_date: '', num_days: 1, daily_price: 0,
-  time_slot: '', num_passengers: 1, num_minors: 0, base_price: 0, final_price: 0,
+  time_slot: '', num_passengers: 1, num_minors: 0, num_adults: 1, children_over_3: 0, children_under_3: 0, base_price: 0, final_price: 0,
   deposit_amount: 0, balance_amount: 0, caution_amount: 0,
   deposit_payment_method_id: '', balance_payment_method_id: '', caution_payment_method_id: '',
   deposit_payment_date: '', balance_payment_date: '', booking_status_id: '', notes: '', internal_notes: '',
@@ -1015,6 +1015,8 @@ export default function BookingModal({
       const method = isExistingBooking ? 'PUT' : 'POST'
 
       const cleanData = { ...formData }
+      // num_adults è solo UI (ricavabile da pax - bambini): non esiste come colonna in bookings
+      delete (cleanData as any).num_adults
       if (isCollectiveBooking) {
         (cleanData as any).booking_type = 'collective'
       }
@@ -1623,7 +1625,7 @@ export default function BookingModal({
                       value={formData.num_adults}
                       onChange={(e) => {
                         const adults = Math.max(0, parseInt(e.target.value) || 0)
-                        const pax = adults + formData.children_over_3 + formData.children_under_3
+                        const pax = adults + (formData.children_over_3 || 0) + (formData.children_under_3 || 0)
                         setFormData({ ...formData, num_adults: adults, num_passengers: Math.max(1, pax) })
                       }}
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm h-[34px]"
@@ -1639,7 +1641,7 @@ export default function BookingModal({
                       value={formData.children_over_3}
                       onChange={(e) => {
                         const over3 = Math.max(0, parseInt(e.target.value) || 0)
-                        const pax = formData.num_adults + over3 + formData.children_under_3
+                        const pax = (formData.num_adults || 0) + over3 + (formData.children_under_3 || 0)
                         setFormData({ ...formData, children_over_3: over3, num_minors: over3 + formData.children_under_3, num_passengers: Math.max(1, pax) })
                       }}
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm h-[34px]"
@@ -1655,7 +1657,7 @@ export default function BookingModal({
                       value={formData.children_under_3}
                       onChange={(e) => {
                         const under3 = Math.max(0, parseInt(e.target.value) || 0)
-                        const pax = formData.num_adults + formData.children_over_3 + under3
+                        const pax = (formData.num_adults || 0) + (formData.children_over_3 || 0) + under3
                         setFormData({ ...formData, children_under_3: under3, num_minors: formData.children_over_3 + under3, num_passengers: Math.max(1, pax) })
                       }}
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm h-[34px]"
