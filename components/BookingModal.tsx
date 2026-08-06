@@ -97,6 +97,9 @@ export default function BookingModal({
     time_slot: '',
     num_passengers: 1,
     num_minors: 0,
+    children_over_3: 0,
+    children_under_3: 0,
+    num_adults: 1,
     base_price: 0,
     final_price: 0,
     deposit_amount: 0,
@@ -258,6 +261,9 @@ export default function BookingModal({
           time_slot: booking.time_slot || '',
           num_passengers: booking.num_passengers || 1,
           num_minors: booking.num_minors || 0,
+          children_over_3: booking.children_over_3 || 0,
+          children_under_3: booking.children_under_3 || 0,
+          num_adults: Math.max(0, (booking.num_passengers || 1) - (booking.children_over_3 || 0) - (booking.children_under_3 || 0)),
           base_price: booking.base_price || 0,
           final_price: booking.final_price || 0,
           deposit_amount: booking.deposit_amount || 0,
@@ -751,9 +757,11 @@ export default function BookingModal({
       
       if (selectedService && selectedService.service_type === 'collective') {
         const pricePerPerson = selectedService.price_per_person || 0
-        const totalPrice = pricePerPerson * formData.num_passengers
+        // ⭐ I bambini sotto i 3 anni non pagano: si escludono dal conteggio
+        const payingPax = Math.max(1, formData.num_passengers - (formData.children_under_3 || 0))
+        const totalPrice = pricePerPerson * payingPax
         
-        console.log('💰 CALCOLO:', `€${pricePerPerson} x ${formData.num_passengers} = €${totalPrice}`)
+        console.log('💰 CALCOLO:', `€${pricePerPerson} x ${payingPax} paganti (${formData.num_passengers} pax - ${formData.children_under_3 || 0} under3) = €${totalPrice}`)
         
         if (totalPrice > 0) {
           const isExistingBooking = (isInitializingRef.current || priceManuallyEditedRef.current)
@@ -763,7 +771,7 @@ export default function BookingModal({
             final_price: isExistingBooking ? prev.final_price : totalPrice
           }))
           if (!isExistingBooking || formData.final_price === formData.base_price) {
-            toast.success(`Prezzo calcolato: €${pricePerPerson} x ${formData.num_passengers} pax = €${totalPrice}`)
+            toast.success(`Prezzo calcolato: €${pricePerPerson} x ${payingPax} paganti = €${totalPrice}`)
           }
         } else {
           console.warn('⚠️ Prezzo = 0! price_per_person del servizio è:', selectedService.price_per_person)
@@ -774,49 +782,72 @@ export default function BookingModal({
     } else {
       console.log('❌ Condizioni non soddisfatte per calcolo collective')
     }
-  }, [formData.service_id, formData.num_passengers, options.rentalServices, booking?.id])
+  }, [formData.service_id, formData.num_passengers, formData.children_under_3, options.rentalServices, booking?.id])
 
-  // ⭐ Override prezzo speciale (Ferragosto e simili)
-  // Dopo che il prezzo base è stato calcolato, controlla se la data ricade
-  // in un periodo speciale. Se sì, sostituisce il prezzo:
-  //  - collettivo → prezzo × num_passengers
-  //  - privato/locazione → prezzo fisso barca
+  // ⭐ Override prezzo Ferragosto (14-15-16 agosto, date fisse)
+  // Legge le colonne ferragosto dalle tabelle prezzi esistenti:
+  //  - collettivo → price_per_person_ferragosto × num_passengers
+  //  - privato/locazione → price_ferragosto (full/half) da boat_rental_services
+  // Ferragosto vince sul prezzo agosto. Se la colonna è vuota, resta il prezzo agosto.
   useEffect(() => {
-    // Non intervenire su prenotazioni in apertura o con prezzo modificato a mano
     if (isInitializingRef.current || priceManuallyEditedRef.current) return
     if (!formData.service_id || !formData.booking_date) return
 
+    // È Ferragosto? (14-15-16 agosto)
+    const d = new Date(formData.booking_date)
+    const isFerragosto = d.getMonth() + 1 === 8 && [14, 15, 16].includes(d.getDate())
+    if (!isFerragosto) return
+
     const selectedService = options.rentalServices.find((s: any) => s.id === formData.service_id)
-    const isCollective = selectedService?.service_type === 'collective'
-    // Per i collettivi boat_id è null; per privati/locazioni serve la barca
-    if (!isCollective && !formData.boat_id) return
+    if (!selectedService) return
+    const isCollective = selectedService.service_type === 'collective'
 
+    if (isCollective) {
+      // Collettivo: prezzo ferragosto per persona × pax
+      const pf = Number(selectedService.price_per_person_ferragosto || 0)
+      if (pf > 0) {
+        const finale = pf * (formData.num_passengers || 1)
+        setFormData(prev => ({ ...prev, base_price: finale, final_price: finale }))
+        toast.success(`🔥 Prezzo Ferragosto: €${pf} x ${formData.num_passengers} pax = €${finale}`)
+      }
+      return
+    }
+
+    // Privato / locazione: prezzo fisso barca dalle colonne ferragosto
+    if (!formData.boat_id) return
+    const isFullDay = formData.time_slot === 'full_day'
     let annullato = false
-    const boatParam = isCollective ? '' : `&boat_id=${formData.boat_id}`
 
-    fetch(`/api/prezzi-speciali/lookup?service_id=${formData.service_id}${boatParam}&date=${formData.booking_date}`)
-      .then(res => res.ok ? res.json() : null)
-      .then((data: any) => {
-        if (annullato || !data || data.prezzo == null) return
+    fetch(`/api/boats/${formData.boat_id}/services`)
+      .then(res => res.ok ? res.json() : [])
+      .then((boatServices: any) => {
+        if (annullato) return
         if (isInitializingRef.current || priceManuallyEditedRef.current) return
 
-        const prezzoSpeciale = Number(data.prezzo)
-        const finale = isCollective
-          ? prezzoSpeciale * (formData.num_passengers || 1)
-          : prezzoSpeciale
+        const sp = Array.isArray(boatServices)
+          ? boatServices.find((bs: any) => bs.service_id === formData.service_id)
+          : null
+        if (!sp) return
 
-        setFormData(prev => ({ ...prev, base_price: finale, final_price: finale }))
-        toast.success(
-          isCollective
-            ? `Prezzo Ferragosto: €${prezzoSpeciale} x ${formData.num_passengers} pax = €${finale}`
-            : `Prezzo Ferragosto: €${finale}`
-        )
+        // Full day → price_ferragosto_full_day (fallback price_ferragosto)
+        // Half day → price_ferragosto_half_day
+        const pf = isFullDay
+          ? Number(sp.price_ferragosto_full_day ?? sp.price_ferragosto ?? 0)
+          : Number(sp.price_ferragosto_half_day ?? 0)
+
+        if (pf > 0) {
+          setFormData(prev => ({ ...prev, base_price: pf, final_price: pf }))
+          toast.success(`🔥 Prezzo Ferragosto: €${pf}`)
+        }
       })
       .catch(() => {})
 
     return () => { annullato = true }
   }, [formData.service_id, formData.boat_id, formData.booking_date, formData.time_slot, formData.num_passengers, options.rentalServices, booking?.id])
 
+  useEffect(() => {
+    if (formData.service_type === 'collective' && formData.num_passengers > 0) {
+      const currentDocs = formData.passengers_documents.length
       const numPax = formData.num_passengers
       
       if (currentDocs < numPax) {
@@ -1585,30 +1616,60 @@ export default function BookingModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Pax</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Adulti</label>
                     <input
                       type="number"
-                      min="1"
-                      value={formData.num_passengers}
-                      onChange={(e) => setFormData({ ...formData, num_passengers: parseInt(e.target.value) })}
+                      min="0"
+                      value={formData.num_adults}
+                      onChange={(e) => {
+                        const adults = Math.max(0, parseInt(e.target.value) || 0)
+                        const pax = adults + formData.children_over_3 + formData.children_under_3
+                        setFormData({ ...formData, num_adults: adults, num_passengers: Math.max(1, pax) })
+                      }}
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm h-[34px]"
+                      placeholder="0"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Bambini</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Bambini 3+</label>
                     <input
                       type="number"
                       min="0"
-                      max={formData.num_passengers}
-                      value={formData.num_minors}
+                      value={formData.children_over_3}
                       onChange={(e) => {
-                        const value = parseInt(e.target.value) || 0
-                        const minors = Math.min(value, formData.num_passengers)
-                        setFormData({ ...formData, num_minors: minors })
+                        const over3 = Math.max(0, parseInt(e.target.value) || 0)
+                        const pax = formData.num_adults + over3 + formData.children_under_3
+                        setFormData({ ...formData, children_over_3: over3, num_minors: over3 + formData.children_under_3, num_passengers: Math.max(1, pax) })
                       }}
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm h-[34px]"
                       placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Bambini &lt;3 anni</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.children_under_3}
+                      onChange={(e) => {
+                        const under3 = Math.max(0, parseInt(e.target.value) || 0)
+                        const pax = formData.num_adults + formData.children_over_3 + under3
+                        setFormData({ ...formData, children_under_3: under3, num_minors: formData.children_over_3 + under3, num_passengers: Math.max(1, pax) })
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm h-[34px]"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Pax totali</label>
+                    <input
+                      type="number"
+                      value={formData.num_passengers}
+                      readOnly
+                      className="w-full px-2 py-1.5 border border-gray-200 bg-gray-100 rounded text-sm h-[34px] font-semibold text-gray-700 cursor-not-allowed"
                     />
                   </div>
                 </div>
