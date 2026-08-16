@@ -40,9 +40,11 @@ function getCollectiveGroupColor(booking: any): string | null {
 }
 // 2026-07-02: formato pax con minori — "8 (5+3)" se ci sono minori, altrimenti solo totale
 function formatPax(numPassengers: any, numMinors: any): string {
-  const adulti = Number(numPassengers) || 0
+  // num_passengers è GIÀ il totale persone (adulti + tutti i bambini).
+  // num_minors è un sottoinsieme (quanti di quel totale sono minori), NON va sommato.
+  const totale = Number(numPassengers) || 0
   const minori = Number(numMinors) || 0
-  const totale = adulti + minori
+  const adulti = Math.max(0, totale - minori)
   return minori > 0 ? `${totale} (${adulti}+${minori})` : `${totale}`
 }
 export default function PrenotazioniPage() {
