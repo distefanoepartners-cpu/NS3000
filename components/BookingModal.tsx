@@ -2045,7 +2045,7 @@ export default function BookingModal({
                         type="number"
                         step="0.01"
                         value={formData.base_price}
-                        onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => { priceManuallyEditedRef.current = true; setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 }) }}
                         onFocus={(e) => e.target.select()}
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm h-[34px]"
                         disabled={calculatingPrice}
