@@ -111,6 +111,8 @@ export default function BriefingModal({ userId }: BriefingModalProps) {
   });
 
   const bookings = pendingBriefing.content || [];
+  // ⭐ Calcolo skipper: con (assegnati) + senza (da assegnare)
+  const withSkipper = bookings.filter((b: any) => b.skipper).length;
   const noSkipper = bookings.filter((b: any) => !b.skipper).length;
 
   return (
@@ -165,6 +167,7 @@ export default function BriefingModal({ userId }: BriefingModalProps) {
                   <div className="text-xs sm:text-sm text-gray-600">Passeggeri</div>
                 </div>
                 
+                {/* ⭐ Box Skipper: X con assegnato / Y senza */}
                 <div className={`rounded-lg p-2 sm:p-4 border-2 ${
                   noSkipper > 0 
                     ? 'bg-red-50 border-red-200' 
@@ -173,9 +176,14 @@ export default function BriefingModal({ userId }: BriefingModalProps) {
                   <div className={`text-xl sm:text-3xl font-bold ${
                     noSkipper > 0 ? 'text-red-600' : 'text-green-600'
                   }`}>
-                    {noSkipper}
+                    {withSkipper} <span className="text-gray-400 font-normal">/</span> {noSkipper}
                   </div>
-                  <div className="text-xs sm:text-sm text-gray-600">Senza Skipper</div>
+                  <div className="text-xs sm:text-sm text-gray-600">
+                    Skipper
+                    <span className="block text-[10px] sm:text-xs text-gray-500">
+                      con / senza
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

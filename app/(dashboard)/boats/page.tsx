@@ -52,6 +52,8 @@ type Boat = {
   price_charter_august_half_day: number | null
   price_charter_august_full_day: number | null
   price_charter_august_week: number | null
+  price_charter_ferragosto_full_day: number | null
+  price_charter_ferragosto_half_day: number | null
 }
 
 type RentalService = {
@@ -69,6 +71,14 @@ type BoatService = {
   price_june: number | null
   price_july_sept: number | null
   price_august: number | null
+  price_ferragosto: number | null
+  // ⭐ 2026-05-22: Half Day support
+  has_half_day: boolean
+  price_apr_may_oct_half_day: number | null
+  price_june_half_day: number | null
+  price_july_sept_half_day: number | null
+  price_august_half_day: number | null
+  price_ferragosto_half_day: number | null
 }
 
 export default function BoatsPage() {
@@ -276,7 +286,9 @@ export default function BoatsPage() {
       price_charter_july_sept_week: boat.price_charter_july_sept_week?.toString() || '',
       price_charter_august_half_day: boat.price_charter_august_half_day?.toString() || '',
       price_charter_august_full_day: boat.price_charter_august_full_day?.toString() || '',
-      price_charter_august_week: boat.price_charter_august_week?.toString() || ''
+      price_charter_august_week: boat.price_charter_august_week?.toString() || '',
+      price_charter_ferragosto_full_day: boat.price_charter_ferragosto_full_day?.toString() || '',
+      price_charter_ferragosto_half_day: boat.price_charter_ferragosto_half_day?.toString() || ''
     }
     // ⭐ LOG PRIMA DI SETTARE
   console.log('✏️ newFormData.requires_license:', newFormData.requires_license)
@@ -330,7 +342,9 @@ export default function BoatsPage() {
         price_charter_july_sept_week: formData.price_charter_july_sept_week ? parseFloat(formData.price_charter_july_sept_week) : null,
         price_charter_august_half_day: formData.price_charter_august_half_day ? parseFloat(formData.price_charter_august_half_day) : null,
         price_charter_august_full_day: formData.price_charter_august_full_day ? parseFloat(formData.price_charter_august_full_day) : null,
-        price_charter_august_week: formData.price_charter_august_week ? parseFloat(formData.price_charter_august_week) : null
+        price_charter_august_week: formData.price_charter_august_week ? parseFloat(formData.price_charter_august_week) : null,
+        price_charter_ferragosto_full_day: formData.price_charter_ferragosto_full_day ? parseFloat(formData.price_charter_ferragosto_full_day) : null,
+        price_charter_ferragosto_half_day: formData.price_charter_ferragosto_half_day ? parseFloat(formData.price_charter_ferragosto_half_day) : null
       }
 // ⭐ AGGIUNGI QUESTI LOG
     console.log('💾 SALVATAGGIO BARCA')
@@ -405,14 +419,22 @@ export default function BoatsPage() {
     console.log('📋 Servizi caricati dal database:', data)
 
     const servicesMap: {[key: string]: BoatService} = {}
-    data.forEach((bs: any) => {
+   data.forEach((bs: any) => {
       // ⭐ AGGIORNATO: Legge prima dai campi vecchi (tour), poi dai _full_day come fallback
       servicesMap[bs.service_id] = {
         service_id: bs.service_id,
         price_apr_may_oct: bs.price_apr_may_oct ?? bs.price_apr_may_oct_full_day ?? null,
         price_june: bs.price_june ?? bs.price_june_full_day ?? null,
         price_july_sept: bs.price_july_sept ?? bs.price_july_sept_full_day ?? null,
-        price_august: bs.price_august ?? bs.price_august_full_day ?? null
+        price_august: bs.price_august ?? bs.price_august_full_day ?? null,
+        price_ferragosto: bs.price_ferragosto ?? bs.price_ferragosto_full_day ?? null,
+        // ⭐ 2026-05-22: Half Day
+        has_half_day: bs.has_half_day ?? false,
+        price_apr_may_oct_half_day: bs.price_apr_may_oct_half_day ?? null,
+        price_june_half_day: bs.price_june_half_day ?? null,
+        price_july_sept_half_day: bs.price_july_sept_half_day ?? null,
+        price_august_half_day: bs.price_august_half_day ?? null,
+        price_ferragosto_half_day: bs.price_ferragosto_half_day ?? null,
       }
       
       console.log(`✅ Servizio ${bs.rental_services?.name || bs.service_id}:`, servicesMap[bs.service_id])
@@ -438,7 +460,15 @@ export default function BoatsPage() {
           price_apr_may_oct: null,
           price_june: null,
           price_july_sept: null,
-          price_august: null
+          price_august: null,
+          price_ferragosto: null,
+          // ⭐ 2026-05-22: Half Day default off
+          has_half_day: false,
+          price_apr_may_oct_half_day: null,
+          price_june_half_day: null,
+          price_july_sept_half_day: null,
+          price_august_half_day: null,
+          price_ferragosto_half_day: null,
         }
       }
       return newServices
@@ -451,6 +481,17 @@ export default function BoatsPage() {
       [serviceId]: {
         ...prev[serviceId],
         [season]: value ? parseFloat(value) : null
+      }
+    }))
+  }
+
+  // ⭐ 2026-05-22: Toggle del flag Half Day per la coppia barca/servizio
+  function toggleHalfDay(serviceId: string) {
+    setBoatServices(prev => ({
+      ...prev,
+      [serviceId]: {
+        ...prev[serviceId],
+        has_half_day: !prev[serviceId].has_half_day,
       }
     }))
   }
@@ -836,6 +877,32 @@ export default function BoatsPage() {
                     </div>
                   </div>
 
+                  {/* 🔥 Ferragosto (14-15-16 agosto) */}
+                  <div className="mb-6 bg-orange-100 p-4 rounded-lg border-2 border-orange-300">
+                    <h4 className="font-medium mb-1 text-orange-900">🔥 Ferragosto (14-15-16 agosto)</h4>
+                    <p className="text-xs text-orange-700 mb-3">Prezzo maggiorato per il 14, 15 e 16 agosto. Se vuoto, si applica il prezzo di Agosto.</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Mezza Giornata (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.price_charter_ferragosto_half_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_ferragosto_half_day: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Giornata Intera (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.price_charter_ferragosto_full_day}
+                          onChange={(e) => setFormData({ ...formData, price_charter_ferragosto_full_day: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* CAUZIONE - Solo per Locazione */}
                   <div className="mt-6 bg-purple-50 p-4 rounded-lg border-2 border-purple-200">
                     <h4 className="font-medium mb-3 text-purple-900 flex items-center gap-2">
@@ -1152,48 +1219,135 @@ export default function BoatsPage() {
                       </div>
 
                       {isSelected && (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pl-7">
-                          <div>
-                            <label className="text-xs text-gray-600 block mb-1">Apr-Mag-Ott</label>
-                            <input
-                              type="number"
-                              value={boatServices[service.id]?.price_apr_may_oct || ''}
-                              onChange={(e) => updateServicePrice(service.id, 'price_apr_may_oct', e.target.value)}
-                              placeholder="€"
-                              className="w-full px-2 py-1 text-sm border rounded"
-                            />
+                        <>
+                          <div className="text-xs font-semibold text-gray-700 mt-3 pl-7 mb-1">☀️ Prezzi Full Day</div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pl-7">
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Apr-Mag-Ott</label>
+                              <input
+                                type="number"
+                                value={boatServices[service.id]?.price_apr_may_oct || ''}
+                                onChange={(e) => updateServicePrice(service.id, 'price_apr_may_oct', e.target.value)}
+                                placeholder="€"
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Giugno</label>
+                              <input
+                                type="number"
+                                value={boatServices[service.id]?.price_june || ''}
+                                onChange={(e) => updateServicePrice(service.id, 'price_june', e.target.value)}
+                                placeholder="€"
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Lug-Sett</label>
+                              <input
+                                type="number"
+                                value={boatServices[service.id]?.price_july_sept || ''}
+                                onChange={(e) => updateServicePrice(service.id, 'price_july_sept', e.target.value)}
+                                placeholder="€"
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Agosto</label>
+                              <input
+                                type="number"
+                                value={boatServices[service.id]?.price_august || ''}
+                                onChange={(e) => updateServicePrice(service.id, 'price_august', e.target.value)}
+                                placeholder="€"
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-orange-600 font-medium block mb-1">🔥 Ferragosto</label>
+                              <input
+                                type="number"
+                                value={boatServices[service.id]?.price_ferragosto || ''}
+                                onChange={(e) => updateServicePrice(service.id, 'price_ferragosto', e.target.value)}
+                                placeholder="€"
+                                className="w-full px-2 py-1 text-sm border border-orange-300 rounded"
+                              />
+                            </div>
                           </div>
-                          <div>
-                            <label className="text-xs text-gray-600 block mb-1">Giugno</label>
-                            <input
-                              type="number"
-                              value={boatServices[service.id]?.price_june || ''}
-                              onChange={(e) => updateServicePrice(service.id, 'price_june', e.target.value)}
-                              placeholder="€"
-                              className="w-full px-2 py-1 text-sm border rounded"
-                            />
+
+                          {/* ⭐ 2026-05-22: Sezione Half Day */}
+                          <div className="mt-4 pl-7 pt-3 border-t border-blue-200">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={boatServices[service.id]?.has_half_day || false}
+                                onChange={() => toggleHalfDay(service.id)}
+                                className="w-4 h-4 text-blue-600 rounded"
+                              />
+                              <span className="text-sm font-semibold text-gray-800">🕐 Offre Mezza Giornata (Half Day)</span>
+                            </label>
+                            <p className="text-xs text-gray-500 mt-1 ml-6">
+                              Se attivo, sul sito comparirà l'opzione "Mezza Giornata" per questa barca su questo servizio.
+                            </p>
+
+                            {boatServices[service.id]?.has_half_day && (
+                              <>
+                                <div className="text-xs font-semibold text-gray-700 mt-3 mb-1">🕐 Prezzi Half Day</div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                  <div>
+                                    <label className="text-xs text-gray-600 block mb-1">Apr-Mag-Ott HD</label>
+                                    <input
+                                      type="number"
+                                      value={boatServices[service.id]?.price_apr_may_oct_half_day || ''}
+                                      onChange={(e) => updateServicePrice(service.id, 'price_apr_may_oct_half_day', e.target.value)}
+                                      placeholder="€"
+                                      className="w-full px-2 py-1 text-sm border rounded"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-gray-600 block mb-1">Giugno HD</label>
+                                    <input
+                                      type="number"
+                                      value={boatServices[service.id]?.price_june_half_day || ''}
+                                      onChange={(e) => updateServicePrice(service.id, 'price_june_half_day', e.target.value)}
+                                      placeholder="€"
+                                      className="w-full px-2 py-1 text-sm border rounded"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-gray-600 block mb-1">Lug-Sett HD</label>
+                                    <input
+                                      type="number"
+                                      value={boatServices[service.id]?.price_july_sept_half_day || ''}
+                                      onChange={(e) => updateServicePrice(service.id, 'price_july_sept_half_day', e.target.value)}
+                                      placeholder="€"
+                                      className="w-full px-2 py-1 text-sm border rounded"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-gray-600 block mb-1">Agosto HD</label>
+                                    <input
+                                      type="number"
+                                      value={boatServices[service.id]?.price_august_half_day || ''}
+                                      onChange={(e) => updateServicePrice(service.id, 'price_august_half_day', e.target.value)}
+                                      placeholder="€"
+                                      className="w-full px-2 py-1 text-sm border rounded"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-orange-600 font-medium block mb-1">🔥 Ferragosto HD</label>
+                                    <input
+                                      type="number"
+                                      value={boatServices[service.id]?.price_ferragosto_half_day || ''}
+                                      onChange={(e) => updateServicePrice(service.id, 'price_ferragosto_half_day', e.target.value)}
+                                      placeholder="€"
+                                      className="w-full px-2 py-1 text-sm border border-orange-300 rounded"
+                                    />
+                                  </div>
+                                </div>
+                              </>
+                            )}
                           </div>
-                          <div>
-                            <label className="text-xs text-gray-600 block mb-1">Lug-Sett</label>
-                            <input
-                              type="number"
-                              value={boatServices[service.id]?.price_july_sept || ''}
-                              onChange={(e) => updateServicePrice(service.id, 'price_july_sept', e.target.value)}
-                              placeholder="€"
-                              className="w-full px-2 py-1 text-sm border rounded"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-gray-600 block mb-1">Agosto</label>
-                            <input
-                              type="number"
-                              value={boatServices[service.id]?.price_august || ''}
-                              onChange={(e) => updateServicePrice(service.id, 'price_august', e.target.value)}
-                              placeholder="€"
-                              className="w-full px-2 py-1 text-sm border rounded"
-                            />
-                          </div>
-                        </div>
+                        </>
                       )}
                     </div>
                   )

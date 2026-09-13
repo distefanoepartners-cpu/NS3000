@@ -75,7 +75,7 @@ export async function GET(request: Request) {
       .in('service_id', serviceIds)
       .gte('booking_date', dateFrom)
       .lte('booking_date', dateTo)
-      .not('booking_status.code', 'eq', 'cancelled')
+      .not('booking_status.code', 'in', '("cancelled","cancelled_final")')
       .order('booking_date')
       .order('created_at')
 
@@ -118,7 +118,7 @@ export async function GET(request: Request) {
         .in('boat_id', allBoatIds)
         .gte('booking_date', dateFrom)
         .lte('booking_date', dateTo)
-        .not('booking_status.code', 'eq', 'cancelled')
+        .not('booking_status.code', 'in', '("cancelled","cancelled_final")')
 
       if (otherBookingsError) {
         console.warn('Nota: query prenotazioni non-collettive fallita:', otherBookingsError.message)
@@ -129,10 +129,24 @@ export async function GET(request: Request) {
 
     // Mappa: { "YYYY-MM-DD": Set<boat_id> } per barche occupate da servizi non collettivi
     const boatsOccupiedByOtherServices: Record<string, Set<string>> = {}
+    // ⭐ NUOVA MAPPA: { "YYYY-MM-DD|service_id": Set<boat_id> } per esclusività tra tour collettivi
+    // Se una barca ha prenotazioni collettive per servizio X, è esclusa dal servizio Y
+    const boatsOccupiedByOtherCollective: Record<string, Set<string>> = {}
     if (otherBookings) {
       for (const ob of otherBookings) {
-        // Ignora le prenotazioni che SONO collettive (stesso service_id dei nostri tour)
-        if (serviceIds.includes(ob.service_id)) continue
+        if (serviceIds.includes(ob.service_id)) {
+          // ⭐ Prenotazione collettiva: registra per l'esclusività tra tour diversi
+          // Per ogni ALTRO servizio collettivo, questa barca è occupata
+          for (const sid of serviceIds) {
+            if (sid === ob.service_id) continue // stesso servizio = ok
+            const key = `${ob.booking_date}|${sid}`
+            if (!boatsOccupiedByOtherCollective[key]) {
+              boatsOccupiedByOtherCollective[key] = new Set()
+            }
+            boatsOccupiedByOtherCollective[key].add(ob.boat_id)
+          }
+          continue
+        }
         // Se la barca ha una qualsiasi prenotazione non-collettiva per quel giorno, è occupata
         if (!boatsOccupiedByOtherServices[ob.booking_date]) {
           boatsOccupiedByOtherServices[ob.booking_date] = new Set()
@@ -172,6 +186,8 @@ export async function GET(request: Request) {
 
         // ⭐ Barche occupate da altri servizi per questa data
         const occupiedByOthers = boatsOccupiedByOtherServices[dateStr] || new Set()
+        // ⭐ Barche occupate da ALTRI tour collettivi per questa data+servizio
+        const occupiedByOtherCollective = boatsOccupiedByOtherCollective[`${dateStr}|${service.id}`] || new Set()
 
         // Filtra barche indisponibili per questa data
         const availableBoats = serviceBoats.filter(boat => {
@@ -182,6 +198,7 @@ export async function GET(request: Request) {
           )
           if (isUnavailable) return false
           if (occupiedByOthers.has(boat.id)) return false
+          if (occupiedByOtherCollective.has(boat.id)) return false  // ⭐ ESCLUSIVITÀ TRA COLLETTIVI
           return true
         })
 

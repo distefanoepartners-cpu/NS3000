@@ -41,22 +41,59 @@ export default function BookingDetailPage() {
     }
   }
 
-  async function handleDelete() {
-    if (!confirm('Sei sicuro di voler eliminare questa prenotazione?')) {
+  // ⭐ 2026-05-11 — UUID dello status "Annullata" (cancelled_final)
+  const CANCELLED_FINAL_STATUS_ID = '69db943f-96d3-4ae0-bb23-53c359e82433'
+async function handleDelete() {
+    if (!confirm('⚠️ ATTENZIONE!\n\nStai per ELIMINARE DEFINITIVAMENTE questa prenotazione.\nQuesta operazione NON può essere annullata.\nLo storico verrà perso.\n\nSei sicuro di voler procedere?')) {
+      return
+    }
+
+    // Doppio prompt di conferma per operazione distruttiva
+    const confirmation = prompt('Scrivi "ELIMINA" per confermare la cancellazione definitiva:')
+    if (confirmation !== 'ELIMINA') {
+      toast.error('Cancellazione annullata')
       return
     }
 
     try {
       const res = await fetch(`/api/bookings/${params.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       })
 
-      if (!res.ok) throw new Error('Errore eliminazione')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || err.message || 'Errore eliminazione')
+      }
 
-      toast.success('Prenotazione eliminata!')
-      router.push('/bookings')
+      toast.success('Prenotazione eliminata definitivamente')
+      // Redirect alla lista dopo eliminazione
+      window.location.href = '/bookings'
     } catch (error: any) {
       console.error('Error deleting booking:', error)
+      toast.error(error.message)
+    }
+  }
+  async function handleCancel() {
+    if (!confirm('Sei sicuro di voler ANNULLARE questa prenotazione?\n\nIl record verrà conservato per statistiche e storico, ma sarà marcato come "Annullata".')) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/bookings/${params.id}`, {
+       method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking_status_id: CANCELLED_FINAL_STATUS_ID })
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || err.message || 'Errore annullamento')
+      }
+
+      toast.success('Prenotazione annullata!')
+      loadBooking()  // ricarica per mostrare il nuovo status
+    } catch (error: any) {
+      console.error('Error cancelling booking:', error)
       toast.error(error.message)
     }
   }
@@ -112,10 +149,19 @@ export default function BookingDetailPage() {
               ✏️ Modifica
             </button>
             <button
-              onClick={handleDelete}
-              className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm md:text-base"
+              onClick={handleCancel}
+              disabled={booking.booking_status?.code === 'cancelled_final'}
+              className="w-full sm:w-auto px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+              title={booking.booking_status?.code === 'cancelled_final' ? 'Già annullata' : 'Annulla la prenotazione (mantiene lo storico)'}
             >
-              🗑️ Elimina
+              🚫 Annulla Prenotazione
+            </button>
+            <button
+              onClick={handleDelete}
+              className="w-full sm:w-auto px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 text-sm md:text-base"
+              title="Elimina definitivamente la prenotazione (NON RECUPERABILE)"
+            >
+              🗑️ Elimina Definitivamente
             </button>
           </div>
         )}
@@ -129,6 +175,7 @@ export default function BookingDetailPage() {
             booking.booking_status?.code === 'pending' ? 'bg-yellow-100 text-yellow-800' :
             booking.booking_status?.code === 'completed' ? 'bg-blue-100 text-blue-800' :
             booking.booking_status?.code === 'cancelled' ? 'bg-red-100 text-red-800' :
+            booking.booking_status?.code === 'cancelled_final' ? 'bg-purple-200 text-purple-800 line-through' :
             'bg-gray-100 text-gray-800'
           }`}>
             {booking.booking_status?.name || 'N/D'}
@@ -174,7 +221,7 @@ export default function BookingDetailPage() {
               <div>
                 <div className="text-sm text-gray-600">Tipo</div>
                 <div className="text-base text-gray-900">
-                  {booking.service_type === 'rental' ? 'Noleggio' : 'Locazione'}
+                  {booking.service_type === 'rental' ? 'Locazione' : 'Noleggio'}
                 </div>
               </div>
               <div>
@@ -199,9 +246,28 @@ export default function BookingDetailPage() {
               )}
               <div>
                 <div className="text-sm text-gray-600">Passeggeri</div>
-                <div className="text-base text-gray-900">{booking.num_passengers}</div>
+                <div className="text-base text-gray-900">
+              {(() => {
+              const adulti = Number(booking.num_passengers) || 0
+              const minori = Number(booking.num_minors) || 0
+              const totale = adulti + minori
+              return minori > 0 ? `${totale} (${adulti} adulti + ${minori} minori)` : `${totale}`
+              })()}
+            </div>
               </div>
             </div>
+            {booking.boarding_port && (
+                <div>
+                  <div className="text-sm text-gray-600">⚓ Porto di Imbarco</div>
+                  <div className="text-base font-semibold text-gray-900">{booking.boarding_port}</div>
+                </div>
+              )}
+              {booking.disembark_port && booking.disembark_port !== booking.boarding_port && (
+                <div>
+                  <div className="text-sm text-gray-600">🏁 Porto di Sbarco</div>
+                  <div className="text-base font-semibold text-gray-900">{booking.disembark_port}</div>
+                </div>
+              )}
           </div>
 
           {/* Note */}

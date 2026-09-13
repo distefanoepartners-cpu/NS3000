@@ -1,70 +1,83 @@
 // app/api/prezzi-speciali/route.ts
-// CRUD dei prezzi speciali (Ferragosto, ecc.) per il pannello backoffice.
-
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-client'
 
-// GET — lista prezzi speciali (con nome servizio e barca per la UI)
+// GET - lista offerte con nome barca
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from('prezzi_speciali')
-      .select('*, rental_services(name), boats(name)')
-      .order('data_inizio', { ascending: false })
-      .order('nome')
+      .select('id, boat_id, data_dal, data_al, prezzo, num_passeggeri, descrizione, attivo, created_at, boats(name)')
+      .order('data_dal', { ascending: false })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json(data || [])
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    if (error) throw error
+
+    const offerte = (data || []).map((o: any) => ({
+      id: o.id,
+      boat_id: o.boat_id,
+      boat_name: o.boats?.name || '—',
+      data_dal: o.data_dal,
+      data_al: o.data_al,
+      prezzo: o.prezzo,
+      num_passeggeri: o.num_passeggeri,
+      descrizione: o.descrizione,
+      attivo: o.attivo,
+    }))
+
+    return NextResponse.json(offerte)
+  } catch (error: any) {
+    console.error('Errore GET prezzi_speciali:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// POST — crea un prezzo speciale
-export async function POST(request: NextRequest) {
+// POST - crea offerta
+export async function POST(request: Request) {
   try {
     const body = await request.json()
 
-    if (!body.nome || !body.service_id || !body.data_inizio || !body.data_fine || body.price_per_person == null) {
-      return NextResponse.json({ error: 'Campi obbligatori mancanti' }, { status: 400 })
+    if (!body.boat_id || !body.data_dal || !body.data_al || body.prezzo == null) {
+      return NextResponse.json({ error: 'Campi obbligatori mancanti (barca, date, prezzo)' }, { status: 400 })
     }
-    if (body.data_fine < body.data_inizio) {
-      return NextResponse.json({ error: 'La data fine non può precedere la data inizio' }, { status: 400 })
+    if (body.data_al < body.data_dal) {
+      return NextResponse.json({ error: 'La data finale non può precedere quella iniziale' }, { status: 400 })
     }
 
     const { data, error } = await supabaseAdmin
       .from('prezzi_speciali')
       .insert({
-        nome: body.nome,
-        service_id: body.service_id,
-        boat_id: body.boat_id || null,
-        data_inizio: body.data_inizio,
-        data_fine: body.data_fine,
-        price_per_person: Number(body.price_per_person),
-        is_active: body.is_active ?? true,
+        boat_id: body.boat_id,
+        data_dal: body.data_dal,
+        data_al: body.data_al,
+        prezzo: parseFloat(body.prezzo) || 0,
+        num_passeggeri: body.num_passeggeri != null ? parseInt(body.num_passeggeri) : null,
+        descrizione: body.descrizione || null,
+        attivo: body.attivo !== undefined ? body.attivo : true,
       })
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json(data)
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    if (error) throw error
+    return NextResponse.json(data, { status: 201 })
+  } catch (error: any) {
+    console.error('Errore POST prezzi_speciali:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// PUT — modifica un prezzo speciale (id nel body)
-export async function PUT(request: NextRequest) {
+// PATCH - attiva/disattiva o modifica offerta
+export async function PATCH(request: Request) {
   try {
     const body = await request.json()
-    if (!body.id) return NextResponse.json({ error: 'id mancante' }, { status: 400 })
+    if (!body.id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
 
-    const update: any = {}
-    for (const f of ['nome', 'service_id', 'boat_id', 'data_inizio', 'data_fine', 'is_active']) {
-      if (body[f] !== undefined) update[f] = body[f]
-    }
-    if (body.boat_id !== undefined) update.boat_id = body.boat_id || null
-    if (body.price_per_person !== undefined) update.price_per_person = Number(body.price_per_person)
+    const update: Record<string, any> = {}
+    if (body.attivo !== undefined) update.attivo = body.attivo
+    if (body.prezzo !== undefined) update.prezzo = parseFloat(body.prezzo) || 0
+    if (body.data_dal !== undefined) update.data_dal = body.data_dal
+    if (body.data_al !== undefined) update.data_al = body.data_al
+    if (body.num_passeggeri !== undefined) update.num_passeggeri = body.num_passeggeri != null ? parseInt(body.num_passeggeri) : null
+    if (body.descrizione !== undefined) update.descrizione = body.descrizione || null
 
     const { data, error } = await supabaseAdmin
       .from('prezzi_speciali')
@@ -73,24 +86,30 @@ export async function PUT(request: NextRequest) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) throw error
     return NextResponse.json(data)
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch (error: any) {
+    console.error('Errore PATCH prezzi_speciali:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// DELETE — elimina un prezzo speciale (?id=...)
-export async function DELETE(request: NextRequest) {
+// DELETE - elimina offerta (?id=...)
+export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-    if (!id) return NextResponse.json({ error: 'id mancante' }, { status: 400 })
+    if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
 
-    const { error } = await supabaseAdmin.from('prezzi_speciali').delete().eq('id', id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const { error } = await supabaseAdmin
+      .from('prezzi_speciali')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
     return NextResponse.json({ success: true })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch (error: any) {
+    console.error('Errore DELETE prezzi_speciali:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

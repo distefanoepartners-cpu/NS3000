@@ -81,6 +81,13 @@ export async function POST(
         price_july_sept_half_day: s.price_july_sept_half_day || null,
         price_august_full_day: s.price_august_full_day || s.price_august || null,
         price_august_half_day: s.price_august_half_day || null,
+        // 🔥 Ferragosto (14-16 agosto): prezzo maggiorato che vince su agosto
+        price_ferragosto: s.price_ferragosto || null,
+        price_ferragosto_full_day: s.price_ferragosto_full_day || s.price_ferragosto || null,
+        price_ferragosto_half_day: s.price_ferragosto_half_day || null,
+        // ⭐ 2026-05-22: flag che indica se la coppia barca/servizio offre Half Day
+        // Letto dal plugin WP per filtrare le opzioni del form e calcolare il prezzo HD.
+        has_half_day: s.has_half_day ?? false,
       }))
 
       console.log('[Boat Services API] 📤 Inserting nel database:', servicesToInsert.length, 'servizi')

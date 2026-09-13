@@ -28,8 +28,6 @@ export default function RootLayout({
       <body>
         {children}
         
-        {/* Cleanup Service Worker */}
-        <script src="/cleanup-sw.js"></script>
       </body>
     </html>
   )

@@ -21,7 +21,7 @@ type RentalService = {
   name: string
   description: string | null
   service_type: 'tour' | 'collective' | 'charter' | 'transfer'
-  duration: 'half_day' | 'full_day' | 'week' | 'custom' | null
+  duration: 'half_day' | 'full_day' | 'week' | 'Custom' | null
   is_active: boolean
   created_at: string
   updated_at: string
@@ -41,8 +41,9 @@ export default function ServicesPage() {
     name: '',
     description: '',
     service_type: 'tour' as 'tour' | 'collective' | 'charter' | 'transfer',
-    duration: 'full_day' as 'half_day' | 'full_day' | 'week' | 'custom',
+    duration: 'full_day' as 'half_day' | 'full_day' | 'week' | 'Custom',
     price_per_person: '',
+    price_per_person_ferragosto: '',
     image_url: '',
     is_active: true
   })
@@ -97,6 +98,7 @@ export default function ServicesPage() {
       service_type: 'tour',
       duration: 'full_day',
       price_per_person: '',
+      price_per_person_ferragosto: '',
       image_url: '',
       is_active: true
     })
@@ -118,6 +120,7 @@ export default function ServicesPage() {
       service_type: service.service_type,
       duration: service.duration || 'full_day',
       price_per_person: (service as any).price_per_person?.toString() || '',
+      price_per_person_ferragosto: (service as any).price_per_person_ferragosto?.toString() || '',
       image_url: (service as any).image_url || '',
       is_active: service.is_active
     })
@@ -173,6 +176,7 @@ export default function ServicesPage() {
         service_type: formData.service_type,
         duration: formData.duration,
         price_per_person: formData.price_per_person ? parseFloat(formData.price_per_person) : null,
+        price_per_person_ferragosto: formData.price_per_person_ferragosto ? parseFloat(formData.price_per_person_ferragosto) : null,
         image_url: imageUrl || null,
         is_active: formData.is_active
       }
@@ -240,7 +244,7 @@ export default function ServicesPage() {
       case 'half_day': return '½ Giornata'
       case 'full_day': return 'Giornata Intera'
       case 'week': return 'Settimanale'
-      case 'custom': return 'Personalizzato'
+      case 'Custom': return 'Personalizzato'
       default: return 'Non specificato'
     }
   }
@@ -371,7 +375,7 @@ export default function ServicesPage() {
                     <option value="half_day">Mezza Giornata</option>
                     <option value="full_day">Giornata Intera</option>
                     <option value="week">Settimanale</option>
-                    <option value="custom">Personalizzato</option>
+                    <option value="Custom">Personalizzato</option>
                   </select>
                 </div>
               </div>
@@ -390,6 +394,24 @@ export default function ServicesPage() {
                   />
                   <p className="text-xs text-purple-700">
                     💡 Il prezzo totale sarà calcolato: prezzo × numero passeggeri
+                  </p>
+                </div>
+              )}
+
+              {/* 🔥 Prezzo Ferragosto per persona (solo collettivi) */}
+              {formData.service_type === 'collective' && (
+                <div className="space-y-2 bg-orange-50 p-4 rounded-lg border border-orange-200">
+                  <Label htmlFor="price_per_person_ferragosto">🔥 Prezzo Ferragosto per Persona (€)</Label>
+                  <Input
+                    id="price_per_person_ferragosto"
+                    type="number"
+                    step="0.01"
+                    value={formData.price_per_person_ferragosto}
+                    onChange={(e) => setFormData({ ...formData, price_per_person_ferragosto: e.target.value })}
+                    placeholder="Lascia vuoto = prezzo normale"
+                  />
+                  <p className="text-xs text-orange-700">
+                    🔥 Applicato automaticamente il 14-15-16 agosto. Se vuoto, si usa il prezzo normale.
                   </p>
                 </div>
               )}

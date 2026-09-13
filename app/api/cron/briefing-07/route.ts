@@ -70,10 +70,9 @@ async function createBriefing(today: Date, todayEnd: Date, dateStr: string) {
       boat_id,
       service_id,
       skipper_id,
-      status_id
+      booking_status_id
     `)
-    .gte('booking_date', today.toISOString())
-    .lte('booking_date', todayEnd.toISOString())
+    .eq('booking_date', dateStr)
     .order('booking_date', { ascending: true });
 
   if (error) {
@@ -88,7 +87,7 @@ async function createBriefing(today: Date, todayEnd: Date, dateStr: string) {
     .in('code', ['confirmed', 'pending']);
 
   const validStatusIds = validStatuses?.map(s => s.id) || [];
-  const filteredBookings = bookings?.filter(b => validStatusIds.includes(b.status_id)) || [];
+  const filteredBookings = bookings?.filter(b => validStatusIds.includes(b.booking_status_id)) || [];
 
   console.log(`📦 Trovate ${filteredBookings.length} prenotazioni per oggi`);
 
@@ -108,8 +107,8 @@ async function createBriefing(today: Date, todayEnd: Date, dateStr: string) {
         booking.skipper_id
           ? supabase.from('skippers').select('first_name, last_name, phone').eq('id', booking.skipper_id).single()
           : null,
-        booking.status_id
-          ? supabase.from('booking_statuses').select('name, code').eq('id', booking.status_id).single()
+        booking.booking_status_id
+          ? supabase.from('booking_statuses').select('name, code').eq('id', booking.booking_status_id).single()
           : null
       ]);
 
@@ -162,14 +161,12 @@ async function createBriefing(today: Date, todayEnd: Date, dateStr: string) {
     }
   };
 }
-
 async function updateBriefing(briefingId: string, today: Date, todayEnd: Date, dateStr: string) {
   // Aggiorna con dati freschi
   const { data: bookings } = await supabase
     .from('bookings')
-    .select('id, booking_date, time_slot, num_passengers, customer_id, boat_id, service_id, skipper_id, status_id')
-    .gte('booking_date', today.toISOString())
-    .lte('booking_date', todayEnd.toISOString())
+    .select('id, booking_date, time_slot, num_passengers, customer_id, boat_id, service_id, skipper_id, booking_status_id')
+    .eq('booking_date', dateStr)
     .order('booking_date', { ascending: true });
 
   const { data: validStatuses } = await supabase
@@ -178,7 +175,7 @@ async function updateBriefing(briefingId: string, today: Date, todayEnd: Date, d
     .in('code', ['confirmed', 'pending']);
 
   const validStatusIds = validStatuses?.map(s => s.id) || [];
-  const filteredBookings = bookings?.filter(b => validStatusIds.includes(b.status_id)) || [];
+  const filteredBookings = bookings?.filter(b => validStatusIds.includes(b.booking_status_id)) || [];
 
   const enrichedBookings = await Promise.all(
     filteredBookings.map(async (booking) => {
@@ -187,7 +184,7 @@ async function updateBriefing(briefingId: string, today: Date, todayEnd: Date, d
         booking.boat_id ? supabase.from('boats').select('name').eq('id', booking.boat_id).single() : null,
         booking.service_id ? supabase.from('rental_services').select('name').eq('id', booking.service_id).single() : null,
         booking.skipper_id ? supabase.from('skippers').select('first_name, last_name, phone').eq('id', booking.skipper_id).single() : null,
-        booking.status_id ? supabase.from('booking_statuses').select('name, code').eq('id', booking.status_id).single() : null
+        booking.booking_status_id ? supabase.from('booking_statuses').select('name, code').eq('id', booking.booking_status_id).single() : null
       ]);
 
       return {
@@ -273,7 +270,10 @@ async function sendBriefingPush(bookingsCount: number, totalPassengers: number, 
 
     const res = await fetch(`${baseUrl}/api/notifications/send-push`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.CRON_SECRET}`
+      },
       body: JSON.stringify({
         title,
         message,

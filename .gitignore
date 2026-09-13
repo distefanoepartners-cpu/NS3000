@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+*.ps1
+*.bak
+*.bak-*
+_temp.txt
+lib.zip
+/vercel
+tatus*
+public/images/Conservazione automatica Corel/

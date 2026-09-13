@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/briefing-17",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/briefing-07",
+      "schedule": "0 5 * * *"
+    }
+  ]
+}

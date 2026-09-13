@@ -233,12 +233,9 @@ export default function UnavailabilityModal({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
                   <option value="">Seleziona motivo...</option>
-                  <option value="maintenance">🔧 Manutenzione</option>
-                  <option value="repair">🛠️ Riparazione</option>
-                  <option value="cleaning">🧼 Pulizia</option>
-                  <option value="inspection">🔍 Ispezione</option>
+                  <option value="repair">🔧 Riparazione</option>
                   <option value="reserved">🔒 Riservata</option>
-                  <option value="other">📋 Altro</option>
+                  <option value="other">❌ N.D.</option>
                 </select>
               </div>
 

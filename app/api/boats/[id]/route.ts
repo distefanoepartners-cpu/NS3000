@@ -92,6 +92,8 @@ export async function PUT(
           price_july_sept_half_day: body.price_charter_july_sept_half_day ?? null,
           price_august_full_day: body.price_charter_august_full_day ?? null,
           price_august_half_day: body.price_charter_august_half_day ?? null,
+          price_ferragosto_full_day: body.price_charter_ferragosto_full_day ?? null,
+          price_ferragosto_half_day: body.price_charter_ferragosto_half_day ?? null,
         }
 
         if (existing) {
@@ -174,6 +176,8 @@ export async function PUT(
             price_july_sept_half_day: body.price_charter_july_sept_half_day ?? null,
             price_august_full_day: body.price_charter_august_full_day ?? null,
             price_august_half_day: body.price_charter_august_half_day ?? null,
+            price_ferragosto_full_day: body.price_charter_ferragosto_full_day ?? null,
+            price_ferragosto_half_day: body.price_charter_ferragosto_half_day ?? null,
           }
           
           if (existing) {

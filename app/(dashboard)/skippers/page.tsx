@@ -137,12 +137,12 @@ export default function SkippersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="p-6 md:p-8">
+      <div className="p-4 md:p-6 lg:p-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">⚓ Gestione Skipper</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">⚓ Gestione Skipper</h1>
           <button
             onClick={() => openModal()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            className="bg-blue-600 text-white px-3 md:px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm md:text-base"
           >
             + Nuovo Skipper
           </button>
@@ -155,82 +155,150 @@ export default function SkippersPage() {
             Nessuno skipper presente. Crea il primo skipper!
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contatti</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patente</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Azioni</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {skippers.map((skipper) => {
-                  const licenseStatus = getLicenseStatus(skipper.license_expiry_date)
-                  
-                  return (
-                    <tr key={skipper.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {skipper.first_name} {skipper.last_name}
+          <>
+            {/* ⭐ VISTA MOBILE: Cards */}
+            <div className="md:hidden space-y-3">
+              {skippers.map((skipper) => {
+                const licenseStatus = getLicenseStatus(skipper.license_expiry_date)
+                return (
+                  <div key={skipper.id} className="bg-white rounded-lg shadow p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold text-gray-900">
+                        {skipper.first_name} {skipper.last_name}
+                      </div>
+                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                        skipper.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {skipper.is_active ? 'Attivo' : 'Disattivato'}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-1 text-sm text-gray-600 mb-3">
+                      {skipper.phone && (
+                        <div className="flex items-center gap-2">
+                          <span>📱</span>
+                          <a href={`tel:${skipper.phone}`} className="text-blue-600">{skipper.phone}</a>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{skipper.phone || '-'}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{skipper.license_number || '-'}</div>
-                        {skipper.license_expiry_date && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {licenseStatus.icon} {new Date(skipper.license_expiry_date).toLocaleDateString('it-IT')}
-                          </div>
-                        )}
-                        <div className={`text-xs mt-1 font-medium ${
-                          licenseStatus.color === 'red' ? 'text-red-600' :
-                          licenseStatus.color === 'yellow' ? 'text-yellow-600' :
-                          licenseStatus.color === 'green' ? 'text-green-600' :
-                          'text-gray-500'
-                        }`}>
-                          {licenseStatus.text}
+                      )}
+                      {skipper.license_number && (
+                        <div className="flex items-center gap-2">
+                          <span>📋</span>
+                          <span>{skipper.license_number}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          skipper.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {skipper.is_active ? 'Attivo' : 'Disattivato'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                        <button
-                          onClick={() => openModal(skipper)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          Modifica
-                        </button>
-                        <button
-                          onClick={() => handleDelete(skipper.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Elimina
-                        </button>
-                      </td>
+                      )}
+                      {skipper.license_expiry_date && (
+                        <div className="flex items-center gap-2">
+                          <span>{licenseStatus.icon}</span>
+                          <span className={
+                            licenseStatus.color === 'red' ? 'text-red-600 font-medium' :
+                            licenseStatus.color === 'yellow' ? 'text-yellow-600 font-medium' :
+                            'text-green-600'
+                          }>
+                            Scadenza: {new Date(skipper.license_expiry_date).toLocaleDateString('it-IT')} — {licenseStatus.text}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 border-t border-gray-100 pt-3">
+                      <button
+                        onClick={() => openModal(skipper)}
+                        className="flex-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition"
+                      >
+                        ✏️ Modifica
+                      </button>
+                      <button
+                        onClick={() => handleDelete(skipper.id)}
+                        className="px-3 py-2 bg-red-50 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 transition"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* ⭐ VISTA DESKTOP: Tabella con scroll orizzontale */}
+            <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contatti</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patente</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Azioni</th>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {skippers.map((skipper) => {
+                      const licenseStatus = getLicenseStatus(skipper.license_expiry_date)
+                      
+                      return (
+                        <tr key={skipper.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {skipper.first_name} {skipper.last_name}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{skipper.phone || '-'}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900">{skipper.license_number || '-'}</div>
+                            {skipper.license_expiry_date && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {licenseStatus.icon} {new Date(skipper.license_expiry_date).toLocaleDateString('it-IT')}
+                              </div>
+                            )}
+                            <div className={`text-xs mt-1 font-medium ${
+                              licenseStatus.color === 'red' ? 'text-red-600' :
+                              licenseStatus.color === 'yellow' ? 'text-yellow-600' :
+                              licenseStatus.color === 'green' ? 'text-green-600' :
+                              'text-gray-500'
+                            }`}>
+                              {licenseStatus.text}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              skipper.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {skipper.is_active ? 'Attivo' : 'Disattivato'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                            <button
+                              onClick={() => openModal(skipper)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Modifica
+                            </button>
+                            <button
+                              onClick={() => handleDelete(skipper.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Elimina
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
+            <div className="p-4 md:p-6">
+              <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">
                 {editingSkipper ? 'Modifica Skipper' : 'Nuovo Skipper'}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-4">
