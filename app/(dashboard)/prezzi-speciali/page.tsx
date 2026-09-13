@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Trash2, Tag, Power } from 'lucide-react'
+import { Plus, Trash2, Tag, Power, Pencil, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 type Boat = { id: string; name: string }
@@ -30,6 +30,8 @@ export default function PrezziSpecialiPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [filtroBarca, setFiltroBarca] = useState('all')
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState(EMPTY_FORM)
 
   async function loadData() {
     setLoading(true)
@@ -101,6 +103,47 @@ export default function PrezziSpecialiPage() {
       setOfferte(prev => prev.map(x => x.id === o.id ? { ...x, attivo: !x.attivo } : x))
     } catch {
       toast.error('Errore aggiornamento')
+    }
+  }
+
+  function startEdit(o: Offerta) {
+    setEditId(o.id)
+    setEditForm({
+      boat_id: o.boat_id,
+      data_dal: o.data_dal,
+      data_al: o.data_al,
+      prezzo: String(o.prezzo),
+      num_passeggeri: o.num_passeggeri != null ? String(o.num_passeggeri) : '',
+      descrizione: o.descrizione || '',
+    })
+  }
+
+  function cancelEdit() {
+    setEditId(null)
+    setEditForm(EMPTY_FORM)
+  }
+
+  async function saveEdit(id: string) {
+    if (!editForm.boat_id || !editForm.data_dal || !editForm.data_al || editForm.prezzo === '') {
+      toast.error('Compila barca, periodo e prezzo')
+      return
+    }
+    if (editForm.data_al < editForm.data_dal) {
+      toast.error('La data finale non può precedere quella iniziale')
+      return
+    }
+    try {
+      const res = await fetch('/api/prezzi-speciali', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...editForm }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Errore') }
+      toast.success('Offerta aggiornata')
+      cancelEdit()
+      loadData()
+    } catch (err: any) {
+      toast.error(err.message || 'Errore aggiornamento')
     }
   }
 
@@ -187,7 +230,41 @@ export default function PrezziSpecialiPage() {
               <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Caricamento…</td></tr>
             ) : offerteFiltrate.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Nessuna offerta{filtroBarca !== 'all' ? ' per questa barca' : ''}</td></tr>
-            ) : offerteFiltrate.map(o => (
+            ) : offerteFiltrate.map(o => editId === o.id ? (
+              <tr key={o.id} className="border-t bg-amber-50">
+                <td className="px-4 py-2">
+                  <select value={editForm.boat_id} onChange={e => setEditForm({ ...editForm, boat_id: e.target.value })} className="w-full h-9 px-2 border border-gray-300 rounded text-sm">
+                    {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </td>
+                <td className="px-4 py-2">
+                  <div className="flex items-center gap-1">
+                    <Input type="date" value={editForm.data_dal} onChange={e => setEditForm({ ...editForm, data_dal: e.target.value })} className="h-9 text-xs" />
+                    <Input type="date" value={editForm.data_al} onChange={e => setEditForm({ ...editForm, data_al: e.target.value })} className="h-9 text-xs" />
+                  </div>
+                </td>
+                <td className="px-4 py-2">
+                  <Input type="number" step="0.01" value={editForm.prezzo} onChange={e => setEditForm({ ...editForm, prezzo: e.target.value })} className="h-9 text-sm text-right" />
+                </td>
+                <td className="px-4 py-2">
+                  <Input type="number" value={editForm.num_passeggeri} onChange={e => setEditForm({ ...editForm, num_passeggeri: e.target.value })} className="h-9 text-sm text-center" placeholder="—" />
+                </td>
+                <td className="px-4 py-2">
+                  <Input value={editForm.descrizione} onChange={e => setEditForm({ ...editForm, descrizione: e.target.value })} className="h-9 text-sm" placeholder="Descrizione" />
+                </td>
+                <td className="px-4 py-2 text-center text-xs text-gray-400">in modifica</td>
+                <td className="px-4 py-2">
+                  <div className="flex items-center justify-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => saveEdit(o.id)} title="Salva">
+                      <Check className="h-4 w-4 text-green-600" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={cancelEdit} title="Annulla">
+                      <X className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ) : (
               <tr key={o.id} className={`border-t ${!o.attivo ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-2.5 font-semibold">{o.boat_name}</td>
                 <td className="px-4 py-2.5">{fmtData(o.data_dal)} → {fmtData(o.data_al)}</td>
@@ -201,6 +278,9 @@ export default function PrezziSpecialiPage() {
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(o)} title="Modifica">
+                      <Pencil className="h-4 w-4 text-sky-600" />
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => toggleAttivo(o)} title={o.attivo ? 'Disattiva' : 'Attiva'}>
                       <Power className={`h-4 w-4 ${o.attivo ? 'text-green-600' : 'text-gray-400'}`} />
                     </Button>
