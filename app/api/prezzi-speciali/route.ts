@@ -3,8 +3,31 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-client'
 
 // GET - lista offerte con nome barca
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const boatId = searchParams.get('boat_id')
+    const date = searchParams.get('date')
+
+    // ⭐ Check mirato: offerta attiva per una barca in una data (per BookingModal)
+    if (boatId && date) {
+      const { data, error } = await supabaseAdmin
+        .from('prezzi_speciali')
+        .select('prezzo, descrizione, num_passeggeri, data_dal, data_al')
+        .eq('boat_id', boatId)
+        .eq('attivo', true)
+        .lte('data_dal', date)
+        .gte('data_al', date)
+        .order('data_dal', { ascending: false })
+        .limit(1)
+      if (error) throw error
+      if (data && data.length > 0) {
+        return NextResponse.json({ is_special: true, prezzo: Number(data[0].prezzo), descrizione: data[0].descrizione || '' })
+      }
+      return NextResponse.json({ is_special: false })
+    }
+
+    // Lista completa (per la pagina prezzi speciali)
     const { data, error } = await supabaseAdmin
       .from('prezzi_speciali')
       .select('id, boat_id, data_dal, data_al, prezzo, num_passeggeri, descrizione, attivo, created_at, boats(name)')

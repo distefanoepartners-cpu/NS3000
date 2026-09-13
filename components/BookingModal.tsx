@@ -85,6 +85,7 @@ export default function BookingModal({
   const { isStaff } = useAuth()
   const isInitializingRef = useRef(false)
   const priceManuallyEditedRef = useRef(false)
+  const specialPriceActiveRef = useRef(false)  // ⭐ true se un prezzo speciale è stato applicato per la selezione corrente
   const [formData, setFormData] = useState({
     customer_id: '',
     boat_id: '',
@@ -613,6 +614,22 @@ export default function BookingModal({
       console.log('🚤 Selected Boat:', selectedBoat?.name)
       
       if (selectedBoat) {
+        // ⭐ PREZZI SPECIALI: se c'è un'offerta attiva per barca+data, applicala
+        // (rispettando la modifica manuale dell'operatore). Ha priorità sul listino.
+        specialPriceActiveRef.current = false
+        fetch(`/api/prezzi-speciali?boat_id=${formData.boat_id}&date=${formData.booking_date}`)
+          .then(res => res.json())
+          .then(special => {
+            if (special?.is_special && special.prezzo > 0) {
+              specialPriceActiveRef.current = true
+              if (!isInitializingRef.current && !priceManuallyEditedRef.current) {
+                setFormData(prev => ({ ...prev, base_price: special.prezzo, final_price: special.prezzo }))
+                toast.success(`Prezzo speciale applicato: €${special.prezzo}${special.descrizione ? ' (' + special.descrizione + ')' : ''}`)
+              }
+            }
+          })
+          .catch(() => {})
+
         let price = 0
         const month = new Date(formData.booking_date).getMonth() + 1
         const isFullDay = formData.time_slot === 'full_day'
@@ -669,10 +686,10 @@ export default function BookingModal({
                 if (priceFromService > 0) {
                   setFormData(prev => ({
                     ...prev,
-                    base_price: (isInitializingRef.current || priceManuallyEditedRef.current) ? prev.base_price : priceFromService,
-                    final_price: (isInitializingRef.current || priceManuallyEditedRef.current) ? prev.final_price : priceFromService
+                    base_price: (isInitializingRef.current || priceManuallyEditedRef.current || specialPriceActiveRef.current) ? prev.base_price : priceFromService,
+                    final_price: (isInitializingRef.current || priceManuallyEditedRef.current || specialPriceActiveRef.current) ? prev.final_price : priceFromService
                   }))
-                  if (!effectiveBookingId || formData.final_price === formData.base_price) {
+                  if (!specialPriceActiveRef.current && (!effectiveBookingId || formData.final_price === formData.base_price)) {
                     toast.success(`Prezzo automatico: €${priceFromService}`)
                   }
                 } else {
@@ -699,12 +716,12 @@ export default function BookingModal({
             return {
               ...prev,
               daily_price: price,
-              base_price: (isInitializingRef.current || priceManuallyEditedRef.current) ? prev.base_price : price,
-              final_price: (isInitializingRef.current || priceManuallyEditedRef.current) ? prev.final_price : totalPrice
+              base_price: (isInitializingRef.current || priceManuallyEditedRef.current || specialPriceActiveRef.current) ? prev.base_price : price,
+              final_price: (isInitializingRef.current || priceManuallyEditedRef.current || specialPriceActiveRef.current) ? prev.final_price : totalPrice
             }
           })
           const days = formData.num_days || 1
-          if (!effectiveBookingId || formData.final_price === formData.base_price) {
+          if (!specialPriceActiveRef.current && (!effectiveBookingId || formData.final_price === formData.base_price)) {
             toast.success(days > 1 
               ? `Prezzo: €${price}/giorno × ${days} giorni = €${price * days}` 
               : `Prezzo automatico: €${price}`)
