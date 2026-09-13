@@ -73,6 +73,7 @@ export async function PATCH(request: Request) {
 
     const update: Record<string, any> = {}
     if (body.attivo !== undefined) update.attivo = body.attivo
+    if (body.boat_id !== undefined) update.boat_id = body.boat_id
     if (body.prezzo !== undefined) update.prezzo = parseFloat(body.prezzo) || 0
     if (body.data_dal !== undefined) update.data_dal = body.data_dal
     if (body.data_al !== undefined) update.data_al = body.data_al
