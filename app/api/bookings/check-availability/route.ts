@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-client'
 
 export async function POST(request: Request) {
   try {
-    const { boat_id, booking_date, booking_id, time_slot } = await request.json()
+    const { boat_id, booking_date, booking_id, time_slot, is_collective } = await request.json()
 
     if (!boat_id || !booking_date) {
       return NextResponse.json({ 
@@ -12,10 +12,17 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
+    // ⭐ I tour COLLETTIVI hanno una logica di capienza separata (più prenotazioni
+    // sulla stessa barca/data/slot sono lo stesso gruppo, non conflitti).
+    // Quindi per i collettivi saltiamo il controllo conflitti per fascia.
+    if (is_collective) {
+      return NextResponse.json({ available: true })
+    }
+
     // 1. Controlla se c'è già una prenotazione per quella barca/data
     let bookingsQuery = supabaseAdmin
       .from('bookings')
-      .select('id, booking_number, booking_status_id, time_slot')
+      .select('id, booking_number, booking_status_id, time_slot, booking_type, service_type')
       .eq('boat_id', boat_id)
       .eq('booking_date', booking_date)
 
@@ -28,11 +35,11 @@ export async function POST(request: Request) {
 
     if (bookingError) throw bookingError
 
-    // Controlla se ci sono prenotazioni attive (non cancellate/annullate)
+    // Considera solo le prenotazioni NON collettive come possibili conflitti
+    // (le collettive non bloccano: hanno gestione capienza a parte)
     const activeBookings = existingBookings?.filter((b: any) => {
-      // Considera tutte le prenotazioni come attive
-      // Migliora con logica stati se necessario
-      return true
+      const isColl = b.booking_type === 'collective' || b.service_type === 'collective'
+      return !isColl
     })
 
     if (activeBookings && activeBookings.length > 0) {
