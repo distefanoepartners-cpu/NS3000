@@ -9,10 +9,13 @@ import { Plus, Trash2, Tag, Power, Pencil, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 type Boat = { id: string; name: string }
+type Servizio = { id: string; name: string; service_type: string }
 type Offerta = {
   id: string
   boat_id: string
   boat_name: string
+  service_id: string | null
+  service_name: string
   data_dal: string
   data_al: string
   prezzo: number
@@ -21,7 +24,7 @@ type Offerta = {
   attivo: boolean
 }
 
-const EMPTY_FORM = { boat_id: '', data_dal: '', data_al: '', prezzo: '', num_passeggeri: '', descrizione: '' }
+const EMPTY_FORM = { boat_id: '', service_id: '', data_dal: '', data_al: '', prezzo: '', num_passeggeri: '', descrizione: '' }
 
 export default function PrezziSpecialiPage() {
   const [offerte, setOfferte] = useState<Offerta[]>([])
@@ -32,6 +35,19 @@ export default function PrezziSpecialiPage() {
   const [filtroBarca, setFiltroBarca] = useState('all')
   const [editId, setEditId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState(EMPTY_FORM)
+  const [serviziForm, setServiziForm] = useState<Servizio[]>([])
+  const [serviziEdit, setServiziEdit] = useState<Servizio[]>([])
+
+  async function caricaServizi(boatId: string): Promise<Servizio[]> {
+    if (!boatId) return []
+    try {
+      const res = await fetch(`/api/prezzi-speciali?boat_id=${boatId}&servizi=1`)
+      const data = await res.json()
+      return Array.isArray(data) ? data : []
+    } catch {
+      return []
+    }
+  }
 
   async function loadData() {
     setLoading(true)
@@ -54,8 +70,8 @@ export default function PrezziSpecialiPage() {
   useEffect(() => { loadData() }, [])
 
   async function handleAdd() {
-    if (!form.boat_id || !form.data_dal || !form.data_al || form.prezzo === '') {
-      toast.error('Compila barca, periodo e prezzo')
+    if (!form.boat_id || !form.service_id || !form.data_dal || !form.data_al || form.prezzo === '') {
+      toast.error('Compila barca, servizio, periodo e prezzo')
       return
     }
     if (form.data_al < form.data_dal) {
@@ -106,16 +122,18 @@ export default function PrezziSpecialiPage() {
     }
   }
 
-  function startEdit(o: Offerta) {
+  async function startEdit(o: Offerta) {
     setEditId(o.id)
     setEditForm({
       boat_id: o.boat_id,
+      service_id: o.service_id || '',
       data_dal: o.data_dal,
       data_al: o.data_al,
       prezzo: String(o.prezzo),
       num_passeggeri: o.num_passeggeri != null ? String(o.num_passeggeri) : '',
       descrizione: o.descrizione || '',
     })
+    setServiziEdit(await caricaServizi(o.boat_id))
   }
 
   function cancelEdit() {
@@ -124,8 +142,8 @@ export default function PrezziSpecialiPage() {
   }
 
   async function saveEdit(id: string) {
-    if (!editForm.boat_id || !editForm.data_dal || !editForm.data_al || editForm.prezzo === '') {
-      toast.error('Compila barca, periodo e prezzo')
+    if (!editForm.boat_id || !editForm.service_id || !editForm.data_dal || !editForm.data_al || editForm.prezzo === '') {
+      toast.error('Compila barca, servizio, periodo e prezzo')
       return
     }
     if (editForm.data_al < editForm.data_dal) {
@@ -166,11 +184,27 @@ export default function PrezziSpecialiPage() {
             <Label className="text-xs">Barca *</Label>
             <select
               value={form.boat_id}
-              onChange={e => setForm({ ...form, boat_id: e.target.value })}
+              onChange={async e => {
+                const bid = e.target.value
+                setForm({ ...form, boat_id: bid, service_id: '' })
+                setServiziForm(await caricaServizi(bid))
+              }}
               className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm"
             >
               <option value="">Seleziona barca...</option>
               {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Servizio / Tour *</Label>
+            <select
+              value={form.service_id}
+              onChange={e => setForm({ ...form, service_id: e.target.value })}
+              disabled={!form.boat_id}
+              className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm disabled:bg-gray-100"
+            >
+              <option value="">{form.boat_id ? 'Seleziona servizio...' : 'Prima scegli la barca'}</option>
+              {serviziForm.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
           <div>
@@ -189,7 +223,7 @@ export default function PrezziSpecialiPage() {
             <Label className="text-xs">N° pax</Label>
             <Input type="number" value={form.num_passeggeri} onChange={e => setForm({ ...form, num_passeggeri: e.target.value })} placeholder="—" />
           </div>
-          <div className="md:col-span-5">
+          <div className="md:col-span-4">
             <Label className="text-xs">Descrizione</Label>
             <Input value={form.descrizione} onChange={e => setForm({ ...form, descrizione: e.target.value })} placeholder="Es. Offerta settembre, weekend..." />
           </div>
@@ -217,6 +251,7 @@ export default function PrezziSpecialiPage() {
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
               <th className="px-4 py-2 text-left">Barca</th>
+              <th className="px-4 py-2 text-left">Servizio</th>
               <th className="px-4 py-2 text-left">Periodo</th>
               <th className="px-4 py-2 text-right">Prezzo</th>
               <th className="px-4 py-2 text-center">N° Pax</th>
@@ -227,14 +262,24 @@ export default function PrezziSpecialiPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Caricamento…</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Caricamento…</td></tr>
             ) : offerteFiltrate.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Nessuna offerta{filtroBarca !== 'all' ? ' per questa barca' : ''}</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Nessuna offerta{filtroBarca !== 'all' ? ' per questa barca' : ''}</td></tr>
             ) : offerteFiltrate.map(o => editId === o.id ? (
               <tr key={o.id} className="border-t bg-amber-50">
                 <td className="px-4 py-2">
-                  <select value={editForm.boat_id} onChange={e => setEditForm({ ...editForm, boat_id: e.target.value })} className="w-full h-9 px-2 border border-gray-300 rounded text-sm">
+                  <select value={editForm.boat_id} onChange={async e => {
+                    const bid = e.target.value
+                    setEditForm({ ...editForm, boat_id: bid, service_id: '' })
+                    setServiziEdit(await caricaServizi(bid))
+                  }} className="w-full h-9 px-2 border border-gray-300 rounded text-sm">
                     {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </td>
+                <td className="px-4 py-2">
+                  <select value={editForm.service_id} onChange={e => setEditForm({ ...editForm, service_id: e.target.value })} className="w-full h-9 px-2 border border-gray-300 rounded text-sm">
+                    <option value="">Servizio...</option>
+                    {serviziEdit.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </td>
                 <td className="px-4 py-2">
@@ -267,6 +312,7 @@ export default function PrezziSpecialiPage() {
             ) : (
               <tr key={o.id} className={`border-t ${!o.attivo ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-2.5 font-semibold">{o.boat_name}</td>
+                <td className="px-4 py-2.5 text-gray-700">{o.service_name}</td>
                 <td className="px-4 py-2.5">{fmtData(o.data_dal)} → {fmtData(o.data_al)}</td>
                 <td className="px-4 py-2.5 text-right font-bold text-sky-700">€ {Number(o.prezzo).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
                 <td className="px-4 py-2.5 text-center">{o.num_passeggeri ?? '—'}</td>

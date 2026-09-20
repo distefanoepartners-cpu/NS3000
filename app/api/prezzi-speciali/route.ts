@@ -8,18 +8,35 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const boatId = searchParams.get('boat_id')
     const date = searchParams.get('date')
+    const serviceId = searchParams.get('service_id')
+    const listServizi = searchParams.get('servizi')
 
-    // ⭐ Check mirato: offerta attiva per una barca in una data (per BookingModal)
-    if (boatId && date) {
+    // ⭐ Servizi disponibili per una barca (per la tendina, da boat_rental_services)
+    if (boatId && listServizi) {
       const { data, error } = await supabaseAdmin
+        .from('boat_rental_services')
+        .select('service_id, rental_services(id, name, service_type)')
+        .eq('boat_id', boatId)
+        .eq('is_active', true)
+      if (error) throw error
+      const servizi = (data || [])
+        .map((r: any) => r.rental_services)
+        .filter(Boolean)
+        .map((s: any) => ({ id: s.id, name: s.name, service_type: s.service_type }))
+      return NextResponse.json(servizi)
+    }
+
+    // ⭐ Check mirato: offerta attiva per barca + data (+ servizio se fornito) — per BookingModal/plugin
+    if (boatId && date) {
+      let q = supabaseAdmin
         .from('prezzi_speciali')
-        .select('prezzo, descrizione, num_passeggeri, data_dal, data_al')
+        .select('prezzo, descrizione, num_passeggeri, data_dal, data_al, service_id')
         .eq('boat_id', boatId)
         .eq('attivo', true)
         .lte('data_dal', date)
         .gte('data_al', date)
-        .order('data_dal', { ascending: false })
-        .limit(1)
+      if (serviceId) q = q.eq('service_id', serviceId)
+      const { data, error } = await q.order('data_dal', { ascending: false }).limit(1)
       if (error) throw error
       if (data && data.length > 0) {
         return NextResponse.json({ is_special: true, prezzo: Number(data[0].prezzo), descrizione: data[0].descrizione || '' })
@@ -30,7 +47,7 @@ export async function GET(request: Request) {
     // Lista completa (per la pagina prezzi speciali)
     const { data, error } = await supabaseAdmin
       .from('prezzi_speciali')
-      .select('id, boat_id, data_dal, data_al, prezzo, num_passeggeri, descrizione, attivo, created_at, boats(name)')
+      .select('id, boat_id, service_id, data_dal, data_al, prezzo, num_passeggeri, descrizione, attivo, created_at, boats(name), rental_services(name)')
       .order('data_dal', { ascending: false })
 
     if (error) throw error
@@ -39,6 +56,8 @@ export async function GET(request: Request) {
       id: o.id,
       boat_id: o.boat_id,
       boat_name: o.boats?.name || '—',
+      service_id: o.service_id,
+      service_name: o.rental_services?.name || '—',
       data_dal: o.data_dal,
       data_al: o.data_al,
       prezzo: o.prezzo,
@@ -59,8 +78,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
 
-    if (!body.boat_id || !body.data_dal || !body.data_al || body.prezzo == null) {
-      return NextResponse.json({ error: 'Campi obbligatori mancanti (barca, date, prezzo)' }, { status: 400 })
+    if (!body.boat_id || !body.service_id || !body.data_dal || !body.data_al || body.prezzo == null) {
+      return NextResponse.json({ error: 'Campi obbligatori mancanti (barca, servizio, date, prezzo)' }, { status: 400 })
     }
     if (body.data_al < body.data_dal) {
       return NextResponse.json({ error: 'La data finale non può precedere quella iniziale' }, { status: 400 })
@@ -70,6 +89,7 @@ export async function POST(request: Request) {
       .from('prezzi_speciali')
       .insert({
         boat_id: body.boat_id,
+        service_id: body.service_id,
         data_dal: body.data_dal,
         data_al: body.data_al,
         prezzo: parseFloat(body.prezzo) || 0,
@@ -97,6 +117,7 @@ export async function PATCH(request: Request) {
     const update: Record<string, any> = {}
     if (body.attivo !== undefined) update.attivo = body.attivo
     if (body.boat_id !== undefined) update.boat_id = body.boat_id
+    if (body.service_id !== undefined) update.service_id = body.service_id
     if (body.prezzo !== undefined) update.prezzo = parseFloat(body.prezzo) || 0
     if (body.data_dal !== undefined) update.data_dal = body.data_dal
     if (body.data_al !== undefined) update.data_al = body.data_al
