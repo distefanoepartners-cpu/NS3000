@@ -617,7 +617,7 @@ export default function BookingModal({
         // ⭐ PREZZI SPECIALI: se c'è un'offerta attiva per barca+data, applicala
         // (rispettando la modifica manuale dell'operatore). Ha priorità sul listino.
         specialPriceActiveRef.current = false
-        fetch(`/api/prezzi-speciali?boat_id=${formData.boat_id}&date=${formData.booking_date}`)
+                fetch(`/api/prezzi-speciali?boat_id=${formData.boat_id}&date=${formData.booking_date}&service_id=${formData.service_id}`)
           .then(res => res.json())
           .then(special => {
             if (special?.is_special && special.prezzo > 0) {
