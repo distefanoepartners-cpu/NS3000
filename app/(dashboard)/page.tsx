@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, addDays, startOfDay } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -110,17 +110,48 @@ export default function PlanningPage() {
   }
 // ⭐ Calcola dati capacità collettivo per (barca, data, slot)
   // Ritorna null se non ci sono prenotazioni collettive su quella cella o se manca capienza
+  // ⭐ PERFORMANCE: mappa prenotazioni per barca+giorno, calcolata UNA volta.
+  // Evita di filtrare tutte le prenotazioni per ogni cella (900+ celle × 1200 prenotazioni).
+  const bookingsByBoatDay = useMemo(() => {
+    const map: Record<string, any[]> = {}
+    for (const b of bookings) {
+      if (!b.boat_id) continue
+      // prenotazione sul giorno singolo
+      const keys = new Set<string>()
+      if (b.booking_date) keys.add(b.boat_id + '|' + b.booking_date)
+      // range (booking_date .. booking_end_date)
+      if (b.booking_end_date && b.booking_date && b.booking_end_date >= b.booking_date) {
+        let cur = new Date(b.booking_date + 'T00:00:00')
+        const end = new Date(b.booking_end_date + 'T00:00:00')
+        let guard = 0
+        while (cur <= end && guard < 400) {
+          keys.add(b.boat_id + '|' + format(cur, 'yyyy-MM-dd'))
+          cur.setDate(cur.getDate() + 1)
+          guard++
+        }
+      }
+      keys.forEach(k => { (map[k] = map[k] || []).push(b) })
+    }
+    return map
+  }, [bookings])
+
+  // ⭐ Indice capienze collettivi per lookup rapido (boat_id|service_id → ctb)
+  const ctbByKey = useMemo(() => {
+    const m: Record<string, any> = {}
+    for (const c of collectiveTourBoats) {
+      if (c.is_active) m[c.boat_id + '|' + c.service_id] = c
+    }
+    return m
+  }, [collectiveTourBoats])
+
   function getCollectiveCapacity(boat: any, day: Date, time_slot: string) {
     const dayStr = format(day, 'yyyy-MM-dd')
 
-    // Trova prenotazioni collettive su questa barca/data/slot (escluse cancellate)
-    const collectiveBookings = bookings.filter(b => {
-      if (b.boat_id !== boat.id) return false
-      // ⭐ FIX 2026-04-30: identifichiamo collettivi sia da booking_type che da service_type
-// (alcune vecchie prenotazioni hanno service_type='collective' e booking_type=null)
-const isCollective = b.booking_type === 'collective' || b.service_type === 'collective'
-if (!isCollective) return false
-      if (b.booking_date !== dayStr) return false
+    // ⭐ usa la mappa pre-calcolata invece di filtrare tutte le prenotazioni
+    const cellBookings = bookingsByBoatDay[boat.id + '|' + dayStr] || []
+    const collectiveBookings = cellBookings.filter(b => {
+      const isCollective = b.booking_type === 'collective' || b.service_type === 'collective'
+      if (!isCollective) return false
       if (b.time_slot !== time_slot) return false
       const status = b.booking_status?.code || ''
       if (['cancelled', 'canceled', 'cancelled_final', 'expired'].includes(status)) return false
@@ -129,14 +160,8 @@ if (!isCollective) return false
 
     if (collectiveBookings.length === 0) return null
 
-    // Service ID del collettivo (tutti i bookings dello stesso slot avranno lo stesso service_id)
     const serviceId = collectiveBookings[0].service_id
-
-    // Trova capienza max in collective_tour_boats
-    const ctb = collectiveTourBoats.find(c =>
-      c.boat_id === boat.id && c.service_id === serviceId && c.is_active
-    )
-
+    const ctb = ctbByKey[boat.id + '|' + serviceId]
     if (!ctb) return null
 
     const used = collectiveBookings.reduce((sum, b) => sum + (b.num_passengers || 0), 0)
@@ -160,12 +185,7 @@ if (!isCollective) return false
     }
 
     const dayStr = format(day, 'yyyy-MM-dd')
-    const dayBookings = bookings.filter((b) => {
-      if (b.boat_id !== boat.id) return false
-      if (b.booking_date === dayStr) return true
-      if (b.booking_end_date && b.booking_date <= dayStr && b.booking_end_date >= dayStr) return true
-      return false
-    })
+    const dayBookings = bookingsByBoatDay[boat.id + '|' + dayStr] || []
 
     const dayUnavail = unavailabilities.find(
       (u) => u.boat_id === boat.id && dayStr >= u.date_from && dayStr <= u.date_to
@@ -616,12 +636,8 @@ if (!isCollective) return false
                   {days.map((day) => {
                     const dayStr = format(day, 'yyyy-MM-dd')
 
-                    const dayBookings = bookings.filter((b) => {
-                      if (b.boat_id !== boat.id) return false
-                      if (b.booking_date === dayStr) return true
-                      if (b.booking_end_date && b.booking_date <= dayStr && b.booking_end_date >= dayStr) return true
-                      return false
-                    })
+                    // ⭐ lookup dalla mappa pre-calcolata (invece di filtrare tutte le prenotazioni)
+                    const dayBookings = bookingsByBoatDay[boat.id + '|' + dayStr] || []
 
                     const dayUnavail = unavailabilities.find(
                       (u) =>
