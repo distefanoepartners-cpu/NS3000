@@ -583,7 +583,6 @@ export default function PlanningPage() {
       <div className="flex-1 bg-white rounded-b-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto h-full" 
              id="main-scroll-container"
-             style={{ scrollBehavior: 'smooth' }}
              onScroll={(e) => {
                const top = document.getElementById('top-scroll-bar')
                if (top && top.scrollLeft !== e.currentTarget.scrollLeft) {
