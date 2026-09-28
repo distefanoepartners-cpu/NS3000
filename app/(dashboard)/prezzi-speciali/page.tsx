@@ -33,6 +33,8 @@ export default function PrezziSpecialiPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [filtroBarca, setFiltroBarca] = useState('all')
+  const [filtroServizio, setFiltroServizio] = useState('all')
+  const [filtroData, setFiltroData] = useState('')
   const [editId, setEditId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState(EMPTY_FORM)
   const [serviziForm, setServiziForm] = useState<Servizio[]>([])
@@ -166,7 +168,27 @@ export default function PrezziSpecialiPage() {
   }
 
   const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('it-IT') : '—'
-  const offerteFiltrate = filtroBarca === 'all' ? offerte : offerte.filter(o => o.boat_id === filtroBarca)
+
+  // Elenco servizi presenti nelle offerte, per popolare il filtro (senza chiamate extra).
+  // '__generico__' rappresenta le offerte senza servizio (service_id null).
+  const serviziDisponibili: Array<[string, string]> = Array.from(
+    new Map<string, string>(
+      offerte.map(o => [o.service_id ?? '__generico__', o.service_name || 'Generico (nessun servizio)'] as [string, string])
+    ).entries()
+  ).sort((a, b) => a[1].localeCompare(b[1]))
+
+  const offerteFiltrate = offerte.filter(o => {
+    if (filtroBarca !== 'all' && o.boat_id !== filtroBarca) return false
+    if (filtroServizio !== 'all') {
+      const key = o.service_id ?? '__generico__'
+      if (key !== filtroServizio) return false
+    }
+    if (filtroData) {
+      // offerta valida nel giorno selezionato: data_dal <= filtroData <= data_al
+      if (!(o.data_dal <= filtroData && filtroData <= o.data_al)) return false
+    }
+    return true
+  })
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
@@ -235,14 +257,33 @@ export default function PrezziSpecialiPage() {
         </div>
       </div>
 
-      {/* Filtro */}
-      <div className="flex items-center gap-3 mb-3">
-        <Label className="text-xs text-gray-500">Filtra per barca:</Label>
-        <select value={filtroBarca} onChange={e => setFiltroBarca(e.target.value)} className="h-9 px-3 border border-gray-300 rounded-md text-sm">
-          <option value="all">Tutte le barche</option>
-          {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-        <span className="text-sm text-gray-400 ml-auto">{offerteFiltrate.length} offerte</span>
+      {/* Filtri */}
+      <div className="flex flex-wrap items-end gap-3 mb-3">
+        <div>
+          <Label className="text-xs text-gray-500">Barca</Label>
+          <select value={filtroBarca} onChange={e => setFiltroBarca(e.target.value)} className="h-9 px-3 border border-gray-300 rounded-md text-sm w-full">
+            <option value="all">Tutte le barche</option>
+            {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Servizio / Tour</Label>
+          <select value={filtroServizio} onChange={e => setFiltroServizio(e.target.value)} className="h-9 px-3 border border-gray-300 rounded-md text-sm w-full">
+            <option value="all">Tutti i servizi</option>
+            {serviziDisponibili.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Valide il giorno</Label>
+          <Input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} className="h-9 text-sm" />
+        </div>
+        {(filtroBarca !== 'all' || filtroServizio !== 'all' || filtroData) && (
+          <Button size="sm" variant="ghost" className="h-9 text-gray-500"
+            onClick={() => { setFiltroBarca('all'); setFiltroServizio('all'); setFiltroData('') }}>
+            <X className="h-4 w-4 mr-1" /> Azzera filtri
+          </Button>
+        )}
+        <span className="text-sm text-gray-400 ml-auto self-center">{offerteFiltrate.length} offerte</span>
       </div>
 
       {/* Tabella offerte */}
@@ -264,7 +305,7 @@ export default function PrezziSpecialiPage() {
             {loading ? (
               <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Caricamento…</td></tr>
             ) : offerteFiltrate.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Nessuna offerta{filtroBarca !== 'all' ? ' per questa barca' : ''}</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Nessuna offerta{(filtroBarca !== 'all' || filtroServizio !== 'all' || filtroData) ? ' con questi filtri' : ''}</td></tr>
             ) : offerteFiltrate.map(o => editId === o.id ? (
               <tr key={o.id} className="border-t bg-amber-50">
                 <td className="px-4 py-2">
