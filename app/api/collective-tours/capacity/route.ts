@@ -114,7 +114,7 @@ export async function GET(request: Request) {
     if (allBoatIds.length > 0) {
       const { data: otherBookingsData, error: otherBookingsError } = await supabaseAdmin
         .from('bookings')
-        .select('boat_id, booking_date, time_slot, service_id, booking_status:booking_statuses(code)')
+        .select('boat_id, booking_date, time_slot, service_id, booking_type, service_type, booking_status:booking_statuses(code)')
         .in('boat_id', allBoatIds)
         .gte('booking_date', dateFrom)
         .lte('booking_date', dateTo)
@@ -134,6 +134,10 @@ export async function GET(request: Request) {
     const boatsOccupiedByOtherCollective: Record<string, Set<string>> = {}
     if (otherBookings) {
       for (const ob of otherBookings) {
+        // ⭐ FIX 2026-10-14: un collettivo salvato senza servizio (es. da BA) non è un tour privato:
+        //    non deve rendere la barca indisponibile per i collettivi
+        const isCollType = (v: any) => v === 'collective' || v === 'collettivo'
+        if (!ob.service_id && (isCollType((ob as any).booking_type) || isCollType((ob as any).service_type))) continue
         if (serviceIds.includes(ob.service_id)) {
           // ⭐ Prenotazione collettiva: registra per l'esclusività tra tour diversi
           // Per ogni ALTRO servizio collettivo, questa barca è occupata
