@@ -184,7 +184,9 @@ export async function POST(request: Request) {
 
     // ⭐ FIX 2026-04-30: prima determina se questa prenotazione è collettiva
     // (auto-detect dal service_id come fatto al punto 6b, ma anticipato qui)
-    let isCollectiveBooking = body.booking_type === 'collective' || body.service_type === 'collective'
+    // ⭐ FIX 2026-10-14: accetta anche 'collettivo' (IT) inviato da Blu Alliance
+    const isCollType = (v: any) => v === 'collective' || v === 'collettivo'
+    let isCollectiveBooking = isCollType(body.booking_type) || isCollType(body.service_type)
     if (!isCollectiveBooking && body.service_id) {
       const { data: svcCheck } = await supabaseAdmin
         .from('rental_services')
@@ -202,16 +204,26 @@ export async function POST(request: Request) {
       .select('id, booking_number, time_slot, booking_type, service_type, service_id, num_passengers')
       .eq('boat_id', body.boat_id)
       .eq('booking_date', body.booking_date)
+      // ⭐ FIX 2026-10-14: le prenotazioni annullate non devono bloccare la barca
+      .not('booking_status_id', 'in', '("79468a4e-b39e-456a-9ea0-0b4085ad662e","69db943f-96d3-4ae0-bb23-53c359e82433")')
 
     if (existingBookings && existingBookings.length > 0) {
       // Helper per identificare prenotazioni collettive (sia da booking_type che da service_type)
       const isExistingCollective = (b: any) =>
-        b.booking_type === 'collective' || b.service_type === 'collective'
+        isCollType(b.booking_type) || isCollType(b.service_type)
 
       // ═══════════════════════════════════════════════════════════════════
       // ⭐ CASE 1: NUOVA prenotazione COLLETTIVA
       // Verifica capienza in collective_tour_boats e somma pax esistenti
       // ═══════════════════════════════════════════════════════════════════
+      // ⭐ FIX 2026-10-14: un collettivo senza servizio non deve finire nella logica dei privati
+      //    (dava "Barca già prenotata full day" sulle barche con altri collettivi)
+      if (isCollectiveBooking && !body.service_id) {
+        return NextResponse.json(
+          { error: 'Bad Request', message: 'Tour collettivo senza servizio: seleziona il tour collettivo' },
+          { status: 400 }
+        )
+      }
       if (isCollectiveBooking && body.service_id) {
         // Conflitti con prenotazioni NON collettive (tour privati, locazioni)
         const sameSlotNonCollective = existingBookings.filter(b =>
@@ -329,7 +341,7 @@ export async function POST(request: Request) {
     }
 
     // 3b. Controlla assegnazioni tour collettivi (blocca se barca è già assegnata a collettivo)
-    if (body.booking_type !== 'collective') {
+    if (!isCollectiveBooking) {
       const { data: collectiveAssignments } = await supabaseAdmin
         .from('collective_boat_assignments')
         .select('id')
@@ -426,8 +438,8 @@ export async function POST(request: Request) {
 
     // 6b. Auto-detect collettivo dal servizio
     let resolvedTimeSlot = body.time_slot || 'full_day'
-    let resolvedBookingType = body.booking_type || 'tour'
-    let resolvedServiceType = body.service_type || 'charter'
+    let resolvedBookingType = isCollectiveBooking ? 'collective' : (body.booking_type || 'tour')
+    let resolvedServiceType = isCollectiveBooking ? 'collective' : (body.service_type || 'charter')
 
     if (body.service_id) {
       const { data: svc } = await supabaseAdmin
