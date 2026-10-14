@@ -216,15 +216,9 @@ export async function POST(request: Request) {
       // ⭐ CASE 1: NUOVA prenotazione COLLETTIVA
       // Verifica capienza in collective_tour_boats e somma pax esistenti
       // ═══════════════════════════════════════════════════════════════════
-      // ⭐ FIX 2026-10-14: un collettivo senza servizio non deve finire nella logica dei privati
-      //    (dava "Barca già prenotata full day" sulle barche con altri collettivi)
-      if (isCollectiveBooking && !body.service_id) {
-        return NextResponse.json(
-          { error: 'Bad Request', message: 'Tour collettivo senza servizio: seleziona il tour collettivo' },
-          { status: 400 }
-        )
-      }
-      if (isCollectiveBooking && body.service_id) {
+      // ⭐ FIX 2026-10-14: collettivo riconosciuto anche senza service_id
+      //    (le prenotazioni BA senza servizio mappato venivano trattate come tour privati)
+      if (isCollectiveBooking) {
         // Conflitti con prenotazioni NON collettive (tour privati, locazioni)
         const sameSlotNonCollective = existingBookings.filter(b =>
           !isExistingCollective(b) &&
@@ -237,9 +231,10 @@ export async function POST(request: Request) {
           )
         }
 
-        // Conflitti con altri tour collettivi (diverso service_id)
+        // Conflitti con altri tour collettivi: solo se entrambi hanno un servizio e sono diversi
         const otherCollective = existingBookings.filter(b =>
           isExistingCollective(b) &&
+          b.service_id && body.service_id &&
           b.service_id !== body.service_id &&
           b.time_slot === body.time_slot
         )
@@ -250,43 +245,46 @@ export async function POST(request: Request) {
           )
         }
 
-        // Verifica capienza collettivo dalla tabella collective_tour_boats
-        const { data: ctb } = await supabaseAdmin
-          .from('collective_tour_boats')
-          .select('max_passengers')
-          .eq('boat_id', body.boat_id)
-          .eq('service_id', body.service_id)
-          .eq('is_active', true)
-          .maybeSingle()
+        // Capienza: verificabile solo se il servizio è noto
+        if (body.service_id) {
+          const { data: ctb } = await supabaseAdmin
+            .from('collective_tour_boats')
+            .select('max_passengers')
+            .eq('boat_id', body.boat_id)
+            .eq('service_id', body.service_id)
+            .eq('is_active', true)
+            .maybeSingle()
 
-        if (!ctb) {
-          return NextResponse.json(
-            { error: 'Conflict', message: 'Questa barca non è abilitata per questo tour collettivo' },
-            { status: 409 }
+          if (!ctb) {
+            return NextResponse.json(
+              { error: 'Conflict', message: 'Questa barca non è abilitata per questo tour collettivo' },
+              { status: 409 }
+            )
+          }
+
+          // Conta anche i collettivi della stessa barca/giorno salvati senza servizio
+          const sameCollective = existingBookings.filter(b =>
+            isExistingCollective(b) &&
+            (b.service_id === body.service_id || !b.service_id) &&
+            b.time_slot === body.time_slot
           )
-        }
+          const usedPax = sameCollective.reduce((sum, b) => sum + (b.num_passengers || 0), 0)
+          const requestedPax = parseInt(body.num_passengers) || 1
+          const remaining = Math.max(0, ctb.max_passengers - usedPax)
 
-        const sameCollective = existingBookings.filter(b =>
-          isExistingCollective(b) &&
-          b.service_id === body.service_id &&
-          b.time_slot === body.time_slot
-        )
-        const usedPax = sameCollective.reduce((sum, b) => sum + (b.num_passengers || 0), 0)
-        const requestedPax = parseInt(body.num_passengers) || 1
-        const remaining = Math.max(0, ctb.max_passengers - usedPax)
+          if (remaining <= 0) {
+            return NextResponse.json(
+              { error: 'Conflict', message: `Tour collettivo pieno (${usedPax}/${ctb.max_passengers} pax)` },
+              { status: 409 }
+            )
+          }
 
-        if (remaining <= 0) {
-          return NextResponse.json(
-            { error: 'Conflict', message: `Tour collettivo pieno (${usedPax}/${ctb.max_passengers} pax)` },
-            { status: 409 }
-          )
-        }
-
-        if (requestedPax > remaining) {
-          return NextResponse.json(
-            { error: 'Conflict', message: `Posti insufficienti: richiesti ${requestedPax}, disponibili ${remaining} (${usedPax}/${ctb.max_passengers} occupati)` },
-            { status: 409 }
-          )
+          if (requestedPax > remaining) {
+            return NextResponse.json(
+              { error: 'Conflict', message: `Posti insufficienti: richiesti ${requestedPax}, disponibili ${remaining} (${usedPax}/${ctb.max_passengers} occupati)` },
+              { status: 409 }
+            )
+          }
         }
 
         // ✅ Disponibile per collettivo, prosegui con la creazione
