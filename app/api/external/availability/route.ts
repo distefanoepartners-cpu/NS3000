@@ -76,6 +76,33 @@ export async function GET(request: Request) {
 
     const boatIds = boats.map(b => b.id)
 
+    // ⭐ 2026-10-17 — Prezzi per servizio di ogni barca (tour privati, locazioni…),
+    //    così i partner (Blu Alliance) propongono lo stesso prezzo del listino NS3000
+    const { data: boatServices } = await supabaseAdmin
+      .from('boat_rental_services')
+      .select(`
+        boat_id, service_id,
+        price_apr_may_oct, price_june, price_july_sept, price_august,
+        price_apr_may_oct_full_day, price_apr_may_oct_half_day,
+        price_june_full_day, price_june_half_day,
+        price_july_sept_full_day, price_july_sept_half_day,
+        price_august_full_day, price_august_half_day
+      `)
+      .in('boat_id', boatIds)
+      .eq('is_active', true)
+
+    const servicePricesByBoat: Record<string, Record<string, any>> = {}
+    for (const bs of boatServices || []) {
+      const p: any = bs
+      if (!servicePricesByBoat[p.boat_id]) servicePricesByBoat[p.boat_id] = {}
+      servicePricesByBoat[p.boat_id][p.service_id] = {
+        apr_may_oct: { full_day: p.price_apr_may_oct_full_day ?? p.price_apr_may_oct ?? null, half_day: p.price_apr_may_oct_half_day ?? null },
+        june:        { full_day: p.price_june_full_day ?? p.price_june ?? null,               half_day: p.price_june_half_day ?? null },
+        july_sept:   { full_day: p.price_july_sept_full_day ?? p.price_july_sept ?? null,     half_day: p.price_july_sept_half_day ?? null },
+        august:      { full_day: p.price_august_full_day ?? p.price_august ?? null,           half_day: p.price_august_half_day ?? null },
+      }
+    }
+
     // 3. Recupera prenotazioni nel periodo
     const { data: bookings, error: bookingsError } = await supabaseAdmin
       .from('bookings')
@@ -178,6 +205,7 @@ export async function GET(request: Request) {
         can_go_capri: boat.can_go_capri,
         image_url: boat.image_url,
         availability,
+        service_prices: servicePricesByBoat[boat.id] || {},
         pricing: {
           rental: {
             apr_may_oct: { half_day: boat.price_rental_apr_may_oct_half_day, full_day: boat.price_rental_apr_may_oct_full_day },
